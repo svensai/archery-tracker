@@ -17,6 +17,7 @@ from src.database import (
     get_all_archers, get_archer_results, get_all_results,
     get_categories, get_distances, get_archer_stats,
     get_archer_yearly_stats,
+    get_events_list, get_event_results,
     get_sync_stats, get_all_sync_status, get_recent_sync_logs,
     get_unresolved_errors, resolve_error
 )
@@ -503,6 +504,37 @@ def api_sync_running():
     with _sync_lock:
         running = _sync_thread is not None and _sync_thread.is_alive()
     return jsonify({'running': running})
+
+
+# ==================== Events / Competitions API ====================
+
+@app.route('/api/events', methods=['GET'])
+def api_get_events():
+    """
+    List competition rounds with stats.
+    Query params: category, distance, archer_id, date_from, date_to
+    """
+    category  = request.args.get('category')
+    distance  = request.args.get('distance')
+    archer_id = request.args.get('archer_id', type=int)
+    date_from = request.args.get('date_from')
+    date_to   = request.args.get('date_to')
+
+    events = get_events_list(category, distance, archer_id, date_from, date_to)
+    return jsonify(events)
+
+
+@app.route('/api/events/<int:event_db_id>/results', methods=['GET'])
+def api_get_event_results(event_db_id):
+    """
+    All archer results for a specific event.
+    Query params: distance, category
+    """
+    distance = request.args.get('distance')
+    category = request.args.get('category')
+
+    results = get_event_results(event_db_id, distance, category)
+    return jsonify(results)
 
 
 # ==================== Backup API Endpoints ====================

@@ -264,6 +264,63 @@ paths:
         '400':
           description: archer_ids required
 
+  /api/events:
+    get:
+      tags: [results]
+      summary: List competition rounds with aggregated stats
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: distance, in: query, schema: { type: string } }
+        - { name: archer_id, in: query, schema: { type: integer } }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    event_db_id: { type: integer }
+                    external_event_id: { type: string }
+                    event_name: { type: string }
+                    event_url: { type: string, nullable: true }
+                    date: { type: string, format: date }
+                    distance: { type: string }
+                    category: { type: string }
+                    participant_count: { type: integer }
+                    top_score: { type: integer }
+                    avg_score: { type: number }
+                    top_placement: { type: integer, nullable: true }
+
+  /api/events/{event_db_id}/results:
+    get:
+      tags: [results]
+      summary: All archer results for a specific event
+      parameters:
+        - { name: event_db_id, in: path, required: true, schema: { type: integer } }
+        - { name: distance, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    archer_id: { type: integer }
+                    archer_name: { type: string }
+                    date: { type: string, format: date }
+                    distance: { type: string }
+                    category: { type: string }
+                    score: { type: integer }
+                    score_per_60: { type: number }
+                    placement: { type: integer, nullable: true }
+
   /api/backup:
     post:
       tags: [backup]

@@ -463,6 +463,111 @@ def get_archer_yearly_stats(
     return rows
 
 
+# ============== Competition / Event browsing ==============
+
+def get_events_list(
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    archer_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Return all competition rounds (event × distance × category) that have results,
+    with aggregated statistics.  Each row represents one round at one event.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = '''
+        SELECT
+            e.id            AS event_db_id,
+            e.event_id      AS external_event_id,
+            e.name          AS event_name,
+            e.event_url,
+            r.date,
+            r.distance,
+            r.category,
+            COUNT(DISTINCT r.archer_id)     AS participant_count,
+            MAX(r.score)                    AS top_score,
+            ROUND(AVG(r.score), 1)          AS avg_score,
+            MIN(r.placement)                AS top_placement
+        FROM events e
+        JOIN results r ON r.event_id = e.id
+        WHERE 1=1
+    '''
+    params: list = []
+
+    if category:
+        query += ' AND r.category = ?'
+        params.append(category)
+    if distance:
+        query += ' AND r.distance = ?'
+        params.append(distance)
+    if archer_id:
+        query += ' AND r.archer_id = ?'
+        params.append(archer_id)
+    if date_from:
+        query += ' AND r.date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND r.date <= ?'
+        params.append(date_to)
+
+    query += ' GROUP BY e.id, r.distance, r.category ORDER BY r.date DESC'
+
+    cursor.execute(query, params)
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_event_results(
+    event_db_id: int,
+    distance: Optional[str] = None,
+    category: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Return all archer results for a specific event (optionally filtered by
+    distance and/or category), ordered by placement then score descending.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = '''
+        SELECT
+            a.id        AS archer_id,
+            a.name      AS archer_name,
+            r.date,
+            r.distance,
+            r.category,
+            r.score,
+            r.placement
+        FROM results r
+        JOIN archers a ON a.id = r.archer_id
+        WHERE r.event_id = ?
+    '''
+    params: list = [event_db_id]
+
+    if distance:
+        query += ' AND r.distance = ?'
+        params.append(distance)
+    if category:
+        query += ' AND r.category = ?'
+        params.append(category)
+
+    query += ' ORDER BY r.placement ASC NULLS LAST, r.score DESC'
+
+    cursor.execute(query, params)
+    results = []
+    for row in cursor.fetchall():
+        r = dict(row)
+        r['score_per_60'] = score_per_60(r['score'], r['distance'])
+        results.append(r)
+    conn.close()
+    return results
+
+
 # ============== Sync-related functions ==============
 
 def add_archer_with_external_id(

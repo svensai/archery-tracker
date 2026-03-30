@@ -455,6 +455,97 @@
         }
 
         .archer-list li.hidden { display: none; }
+
+        /* Competitions browser */
+        .competitions-list {
+            list-style: none;
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .comp-item {
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .comp-item:hover { background: rgba(0,212,255,0.08); border-left-color: rgba(0,212,255,0.4); }
+        .comp-item.active { background: rgba(0,212,255,0.13); border-left-color: #00d4ff; }
+
+        .comp-item .comp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .comp-item .comp-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e0e0e0;
+            flex: 1;
+        }
+
+        .comp-item .comp-date {
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        .comp-item .comp-meta {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #666;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .comp-item .comp-meta span { color: #888; }
+        .comp-item .comp-meta strong { color: #aaa; }
+
+        /* Event detail panel */
+        #event-detail-panel {
+            margin-top: 8px;
+            display: none;
+        }
+
+        #event-detail-panel .event-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .event-results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .event-results-table th {
+            color: #00d4ff;
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.2);
+        }
+
+        .event-results-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .event-results-table tr:hover td { background: rgba(0,212,255,0.05); }
+
+        .event-results-table tr.highlight-archer td {
+            background: rgba(0,212,255,0.1);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -537,6 +628,36 @@
                     </div>
                 </div>
 
+                <!-- Competitions Browser -->
+                <div class="card" id="competitions-section">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px;">
+                        <h2 style="margin:0;border:none;padding:0;">🏆 Konkuranser</h2>
+                        <span id="comp-count" style="font-size:12px;color:#666;"></span>
+                    </div>
+                    <ul class="competitions-list" id="competitions-list">
+                        <li style="color:#888;padding:8px;">Laster konkuranser…</li>
+                    </ul>
+                    <!-- Expanded event detail -->
+                    <div id="event-detail-panel">
+                        <div class="event-title" id="event-detail-title"></div>
+                        <div style="overflow-x:auto;">
+                            <table class="event-results-table">
+                                <thead>
+                                    <tr>
+                                        <th>Plass</th>
+                                        <th>Skytter</th>
+                                        <th>Klasse</th>
+                                        <th>Distanse</th>
+                                        <th>Score</th>
+                                        <th>Per 60</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="event-detail-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Results Table -->
                 <div class="card" id="results-section">
                     <h2>📋 Recent Results</h2>
@@ -584,6 +705,7 @@
             await loadArchers();   // populates allArchers
             await loadFilters();
             refreshView();         // auto-compare all on first load
+            loadCompetitions();    // populate competitions browser
 
             // File input handler
             document.getElementById('html-file').addEventListener('change', (e) => {
@@ -695,6 +817,7 @@
             });
 
             refreshView();
+            loadCompetitions();
         }
 
         // Decide what to show based on how many archers are selected
@@ -1008,9 +1131,8 @@
 
         // Apply filters
         function applyFilters() {
-            if (selectedArcherIds.size > 0) {
-                refreshView();
-            }
+            refreshView();
+            loadCompetitions();
         }
 
         // Import results
@@ -1219,6 +1341,142 @@
             setTimeout(() => {
                 container.innerHTML = '';
             }, 5000);
+        }
+
+        // ── Competitions browser ──────────────────────────────────────────
+
+        let activeEventId = null;   // currently expanded event_db_id
+        let activeEventDistance = null;
+        let activeEventCategory = null;
+
+        async function loadCompetitions() {
+            const { category, distance, date_from, date_to } = getFilters();
+            // If a single archer is selected, limit to their events
+            const archerParam = selectedArcherIds.size === 1
+                ? `&archer_id=${selectedArcherId}` : '';
+
+            let url = '/api/events?';
+            if (category)  url += `category=${encodeURIComponent(category)}&`;
+            if (distance)  url += `distance=${encodeURIComponent(distance)}&`;
+            if (date_from) url += `date_from=${date_from}&`;
+            if (date_to)   url += `date_to=${date_to}&`;
+            url += archerParam;
+
+            try {
+                const resp = await fetch(url);
+                const events = await resp.json();
+                renderCompetitions(events);
+            } catch (e) {
+                console.error('Error loading competitions:', e);
+            }
+        }
+
+        function renderCompetitions(events) {
+            const list = document.getElementById('competitions-list');
+            const countEl = document.getElementById('comp-count');
+            countEl.textContent = events.length
+                ? `${events.length} konkuranse${events.length !== 1 ? 'r' : ''}`
+                : '';
+
+            if (events.length === 0) {
+                list.innerHTML = '<li style="color:#888;padding:8px;">Ingen konkuranser funnet.</li>';
+                // Close detail panel if open
+                document.getElementById('event-detail-panel').style.display = 'none';
+                activeEventId = null;
+                return;
+            }
+
+            list.innerHTML = events.map(ev => {
+                const isActive = (ev.event_db_id === activeEventId &&
+                                   ev.distance === activeEventDistance &&
+                                   ev.category === activeEventCategory);
+                return `
+                <li class="comp-item${isActive ? ' active' : ''}"
+                    onclick="toggleEventDetail(${ev.event_db_id}, '${ev.distance.replace(/'/g,"\\'")}', '${ev.category}', '${escapeHtml(ev.event_name)}', '${ev.date}')">
+                    <div class="comp-header">
+                        <span class="comp-name">${escapeHtml(ev.event_name)}</span>
+                        <span class="comp-date">${formatDate(ev.date)}</span>
+                    </div>
+                    <div class="comp-meta">
+                        <span>${ev.distance} · <strong>${ev.category}</strong></span>
+                        <span>${ev.participant_count} skytter${ev.participant_count !== 1 ? 'e' : ''}</span>
+                        <span>Topp: <strong>${ev.top_score}</strong></span>
+                        <span>Snitt: <strong>${ev.avg_score}</strong></span>
+                    </div>
+                </li>`;
+            }).join('');
+
+            // If an event was already open and is still in list, re-fetch its detail
+            if (activeEventId !== null) {
+                showEventDetail(activeEventId, activeEventDistance, activeEventCategory);
+            }
+        }
+
+        async function toggleEventDetail(eventDbId, distance, category, name, date) {
+            // If clicking the same row, collapse it
+            if (activeEventId === eventDbId &&
+                activeEventDistance === distance &&
+                activeEventCategory === category) {
+                activeEventId = null;
+                activeEventDistance = null;
+                activeEventCategory = null;
+                document.getElementById('event-detail-panel').style.display = 'none';
+                // Remove active class
+                document.querySelectorAll('.comp-item').forEach(el => el.classList.remove('active'));
+                return;
+            }
+
+            activeEventId = eventDbId;
+            activeEventDistance = distance;
+            activeEventCategory = category;
+
+            // Mark active row
+            document.querySelectorAll('.comp-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget && event.currentTarget.classList.add('active');
+
+            document.getElementById('event-detail-title').textContent =
+                `${name} — ${formatDate(date)} — ${distance} · ${category}`;
+
+            await showEventDetail(eventDbId, distance, category);
+        }
+
+        async function showEventDetail(eventDbId, distance, category) {
+            const panel = document.getElementById('event-detail-panel');
+            const tbody = document.getElementById('event-detail-body');
+
+            panel.style.display = 'block';
+            tbody.innerHTML = '<tr><td colspan="6" style="color:#888;text-align:center;padding:12px;">Laster…</td></tr>';
+
+            try {
+                const url = `/api/events/${eventDbId}/results?distance=${encodeURIComponent(distance)}&category=${encodeURIComponent(category)}`;
+                const resp = await fetch(url);
+                const results = await resp.json();
+
+                if (results.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="color:#888;text-align:center;">Ingen resultater.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = results.map(r => {
+                    const isSelected = selectedArcherIds.has(r.archer_id);
+                    return `<tr class="${isSelected ? 'highlight-archer' : ''}">
+                        <td>${r.placement ? getPlacementBadge(r.placement) : '—'}</td>
+                        <td>${escapeHtml(r.archer_name)}${isSelected ? ' ★' : ''}</td>
+                        <td>${r.category}</td>
+                        <td>${r.distance}</td>
+                        <td><strong>${r.score}</strong></td>
+                        <td style="color:#aaa">${r.score_per_60}</td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" style="color:#ff6464;">Feil ved lasting.</td></tr>';
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
     </script>
 </body>
