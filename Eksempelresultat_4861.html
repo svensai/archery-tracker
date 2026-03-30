@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="Fredrik Larsson, fredrik@larresit.se" />
+    <meta name="copyright" content="Larre's IT" />
+    <meta name="owner" content="Svenska bågskytteförbundet" />
+    <title> - nb-NO Archery Result Service</title>
+
+    <link rel="stylesheet" href="/lib/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="/css/larresit.css?v=OPjTC6sKcoD829FjSU1puhURtCcV1A8NCjHso7kXmuw" />
+</head>
+
+
+<body class="no-trans front-page">
+    <div class="page-wrapper">
+
+        <div class="header-container">
+    <header class="header">
+        <h1 class="logo">
+            <a href="http://www.bueskyting.no/">
+                <img src="/images/LogoWAN.png?v=WYzy9mGxlaTRUyjQYJ1zcNiy-pHYP7Ayjj5RiaWvrTU" width="50%" />
+                <span class="nowrap">Norges Bueskytterforbund</span>
+            </a>
+        </h1>
+        <ul class="main-nav">
+            <li class="nav-item">
+                <a class="nav-link" title='Terminliste' href="/"><i class="far fa-fw fa-calendar-alt"></i> <span>Terminliste</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" title='Resultater' href="/Event/Finished"><i class="fa fa-fw fa-list-ol"></i> <span>Resultater</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" title='Klubber' href="/Club"><i class="fa fa-fw fa-users"></i> <span>Klubber</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" title='Skyttere' href="/Archer"><i class="fa fa-fw fa-user"></i> <span>Skyttere</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" title='Ranking' href="/Ranking/RankingWA"><i class="fas fa-fw fa-chart-line"></i> <span>Ranking</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" title='Statistikk' href="/Statistic/Attendance2"><i class="fas fa-fw fa-chart-bar"></i> <span>Statistikk</span></a>
+            </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/Login/UserLogin">
+                        <i class="fas fa-fw fa-sign-in-alt"></i> <span>Logg inn</span>
+                    </a>
+                </li>
+        </ul>
+    </header>
+</div>
+
+
+        <div class="body-container" style="-webkit-overflow-scrolling: touch;">
+            <div id="main-body" style="-webkit-overflow-scrolling: touch;">
+                <div class="main-container">
+    <div class="max-width-container">
+        <div class="flex-container">
+            <div class="container-body">
+                <div class="image-box club-logo">
+                        <i class="fas fa-fw fa-user fa-7x"></i>
+                </div>
+
+                <div class="container-row">
+                    <h3 class="title">Aksel Granum</h3>
+                    <input type="hidden" id="current_archer" value="4861"/>
+                        <a href="/Club/Detail/8">B&#xE6;rum og Omegn Bueskyttere <i class="fas fa-fw fa-link"></i></a>
+                    <div class="flexTable">
+                        <div class="fRow noHiglight fItemsBasis">
+                            <div class="flexItems flexCenter fItemsBasis">&shy;</div>
+                            <div class="flexItems flexCenter fItemsBasis">Starter</div>
+                            <div class="flexItems flexCenter fItemsBasis">Top 3</div>
+                            <div class="flexItems flexCenter fItemsBasis">Seire</div>
+                        </div>
+                        <div class="fRow fItemsBasis">
+                            <div class="flexItems flexCenter fItemsBasis">2026</div>
+                            <div class="flexItems flexCenter fItemsBasis">0</div>
+                            <div class="flexItems flexCenter fItemsBasis">0</div>
+                            <div class="flexItems flexCenter fItemsBasis">0</div>
+                        </div>
+                        <div class="fRow fItemsBasis">
+                            <div class="flexItems flexCenter fItemsBasis">Totalt</div>
+                            <div class="flexItems flexCenter fItemsBasis">69</div>
+                            <div class="flexItems flexCenter fItemsBasis">44</div>
+                            <div class="flexItems flexCenter fItemsBasis">22</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flexTable">
+            <div class="fRow noHiglight">
+                <fieldset>
+                    <legend>2026</legend>
+                    <div role="tabpanel" class="tab-pane active" id="currentseason">
+
+                        <div id="season-grid">
+                            <div class="flexTable">
+                                <div class="fRow noHiglight fHeader">
+                                    <div class="flexDate">
+                                        <span>Dato</span>
+                                    </div>
+                                    <div class="flexSubRows">
+                                        <div class="flexSubRowItem">Navn</div>
+                                        <div class="flexSubRowItem">
+                                            <div class="flexItems">Runder</div>
+                                            <div class="flexItems">Klasse</div>
+                                            <div class="flexItemsInfo">Poeng</div>
+                                            <div class="flexItemsInfo">Ranket</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+            </div>
+            <div class="fRow noHiglight">
+                <fieldset>
+                    <legend>Per runde</legend>
+                    <div role="tabpanel" class="tab-pane" id="round">
+                        <select id="plottrond">
+                            <option value="0">Velg</option>
+                        <option value="18">18 m</option>
+<option value="22">3D-stevne</option>
+<option value="14">720-runde</option>
+<option value="24">Felt oppm&#xE5;lt/uoppm&#xE5;lt</option>
+</select>
+                        <select id="disciplines">
+                            <option value="0">Velg</option>
+                        <option value="4">Barebow</option>
+<option value="3">Compound</option>
+<option value="5">Instinktiv</option>
+<option value="6">Langbue</option>
+<option value="15">Trad</option>
+</select>
+                        <div id="round-stats"></div>
+                        <div>
+                            <div id="myChart"></div>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+            <div class="fRow noHiglight">
+                <fieldset>
+                    <legend>Historiske resultat</legend>
+                    <div role="tabpanel" class="tab-pane paddingtop" id="previous-seasons">
+                        <select id="previousyear"><option value="2025">2025</option>
+<option value="2024">2024</option>
+<option value="2023">2023</option>
+<option value="2022">2022</option>
+<option value="2021">2021</option>
+<option value="2020">2020</option>
+</select>
+                        <div id="historical-grid">
+                            <div class="flexTable">
+                                <div class="fRow noHiglight fHeader">
+                                    <div class="flexDate">
+                                        <span>Dato</span>
+                                    </div>
+                                    <div class="flexSubRows">
+                                        <div class="flexSubRowItem">Navn</div>
+                                        <div class="flexSubRowItem">
+                                            <div class="flexItems">Runder</div>
+                                            <div class="flexItems">Klasse</div>
+                                            <div class="flexItemsInfo">Poeng</div>
+                                            <div class="flexItemsInfo">Ranket</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+            </div>
+        </div>
+
+        <footer id="footer">
+    <div class="footer-left">
+    </div>
+    <div class="footer-center">
+        <p><span class="nowrap">Copyright © 2016-2021. All Rights Reserved</span></p>
+    </div>
+    <div class="footer-right">
+        <a href="http://worldarchery.org/" taret="_blank">
+            <img src="/images/LogoWAN.png?v=WYzy9mGxlaTRUyjQYJ1zcNiy-pHYP7Ayjj5RiaWvrTU" width="50%" />
+        </a>
+    </div>
+</footer>
+
+    </div>
+
+    <script src="/lib/jquery/dist/jquery.min.js"></script>
+    <script type="text/javascript" src="/js/Ars.js?v=8sAzOtsV6gE1Qz6nceV-gLW8bfn8DukB8Z_84AwmnMA"></script>
+    <script type="text/javascript" src="/js/Ars.Language.js?v=O6bpDf_bkLqPO40x_zj5_NNFckXPVM-UocxujOxF4No"></script>
+
+    <script type="text/javascript">
+        $(function () {
+            Ars.Language.init();
+        });
+    </script>
+    
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="/js/Ars.Archer.js?v=i_3LHXWTYaWQBfPKizG84K3-VAXDlVMyiN3k0SkkMWw"></script>
+    <script type="text/javascript">
+        $(function() {
+            Ars.Archer.Details.init();
+
+        })
+        //$(window).resize(function () {
+        //    var c = document.getElementById("myChart").firstChild.firstChild;
+        //    c.style.width = "100%";
+        //    Ars.Archer.Details.resizeChart();
+        //});
+    </script>
+
+    <script type="text/javascript">
+        $(function () {
+            $('a.nav-link').each(function () {
+                if ($(this).prop('href') == window.location.href) {
+                    $(this).addClass('active'); $(this).addClass('active');
+                }
+            });
+            $(".main-container").scroll(function () {
+                if ($(".main-container").scrollTop() > 150) {
+                    $(".logo").addClass('scrolled');
+                } else if ($(".main-container").scrollTop() < 50) {
+                    $(".logo").removeClass('scrolled');
+                }
+            });
+            $("#main-body").scroll(function () {
+                if ($("#main-body").scrollTop() > 150) {
+                    $(".logo").addClass('scrolled');
+                } else if ($("#main-body").scrollTop() < 50) {
+                    $(".logo").removeClass('scrolled');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

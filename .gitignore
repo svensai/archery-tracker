@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+data/archery.db
+data/archery.db-shm
+data/archery.db-wal
+data/backups/
+.DS_Store
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.claude/settings.local.json

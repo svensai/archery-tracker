@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archery Results Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: #00d4ff;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        header p {
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Import Section */
+        .import-section input[type="text"],
+        .import-section select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .import-section input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: block;
+            padding: 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px dashed rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .file-label:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.5);
+        }
+
+        .file-label.has-file {
+            background: rgba(0, 255, 100, 0.1);
+            border-color: rgba(0, 255, 100, 0.3);
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Archer List */
+        .archer-list {
+            list-style: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .archer-list li {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .archer-list li:hover {
+            background: rgba(0, 212, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .archer-list li.selected {
+            background: rgba(0, 212, 255, 0.2);
+            border-left: 3px solid #00d4ff;
+        }
+
+        .archer-list li input[type="checkbox"] {
+            margin-right: 10px;
+            accent-color: #00d4ff;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .archer-hint {
+            font-size: 0.78rem;
+            color: #555;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filters select {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #e0e0e0;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .stat-card .label {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* Results Table */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .results-table th {
+            color: #00d4ff;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .results-table tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .placement-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .placement-1 { background: gold; color: #000; }
+        .placement-2 { background: silver; color: #000; }
+        .placement-3 { background: #cd7f32; color: #000; }
+
+        /* Alert */
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .alert-success {
+            background: rgba(0, 255, 100, 0.1);
+            border: 1px solid rgba(0, 255, 100, 0.3);
+            color: #00ff64;
+        }
+
+        .alert-error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #ff6464;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #00d4ff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+
+        .chart-toggle {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-toggle {
+            padding: 7px 16px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-toggle.active {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            border-color: #00d4ff;
+        }
+
+        .btn-toggle:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏹 Archery Results Tracker</h1>
+            <p>Track and visualize archery competition scores</p>
+        </header>
+
+        <div class="grid">
+            <div class="sidebar">
+                <!-- Import Section -->
+                <div class="card import-section">
+                    <h2>📥 Import Results</h2>
+                    <div id="import-alert"></div>
+                    <input type="text" id="archer-name" placeholder="Archer Name (e.g., John Smith)">
+                    <label class="file-label" id="file-label" for="html-file">
+                        📄 Drop HTML file here or click to browse
+                    </label>
+                    <input type="file" id="html-file" accept=".html,.txt">
+                    <button class="btn btn-primary" onclick="importResults()">Import Results</button>
+                </div>
+
+                <!-- Archers List -->
+                <div class="card">
+                    <h2>👥 Archers</h2>
+                    <ul class="archer-list" id="archer-list">
+                        <li class="loading">Loading archers...</li>
+                    </ul>
+                    <p class="archer-hint">Select multiple to compare</p>
+                </div>
+
+                <!-- Filters -->
+                <div class="card">
+                    <h2>🔍 Filters</h2>
+                    <div class="filters">
+                        <select id="filter-category" onchange="applyFilters()">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select id="filter-distance" onchange="applyFilters()">
+                            <option value="">All Distances</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <!-- Stats Section -->
+                <div class="card" id="stats-section" style="display: none;">
+                    <h2>📊 Statistics</h2>
+                    <div class="stats-grid" id="stats-grid">
+                        <!-- Stats will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Chart Section -->
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                        <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">📈 Graf</h2>
+                        <div class="chart-toggle">
+                            <button class="btn-toggle active" id="toggle-time" onclick="setChartMode('time')">Resultat over tid</button>
+                            <button class="btn-toggle" id="toggle-yearly" onclick="setChartMode('yearly')">Årsgjennomsnitt</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="scores-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="card" id="results-section">
+                    <h2>📋 Recent Results</h2>
+                    <div style="overflow-x: auto;">
+                        <table class="results-table" id="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Event</th>
+                                    <th>Distance</th>
+                                    <th>Category</th>
+                                    <th>Score</th>
+                                    <th>Place</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-body">
+                                <tr><td colspan="6" class="loading">Select an archer to view results</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedArcherId = null;       // first/only selected archer (backwards compat)
+        let selectedArcherIds = new Set(); // all currently checked archers
+        let chart = null;
+        let allResults = [];
+        let chartMode = 'time'; // 'time' | 'yearly'
+
+        // Colors for chart lines
+        const chartColors = [
+            '#00d4ff', '#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0',
+            '#9966ff', '#ff9f40', '#c9cbcf', '#7cfc00', '#ff1493'
+        ];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadArchers();
+            loadFilters();
+            initChart();
+
+            // File input handler
+            document.getElementById('html-file').addEventListener('change', (e) => {
+                const label = document.getElementById('file-label');
+                if (e.target.files.length > 0) {
+                    label.textContent = '✓ ' + e.target.files[0].name;
+                    label.classList.add('has-file');
+                } else {
+                    label.textContent = '📄 Drop HTML file here or click to browse';
+                    label.classList.remove('has-file');
+                }
+            });
+        });
+
+        // Initialize Chart
+        function initChart() {
+            rebuildChart('line');
+        }
+
+        // Load archers list
+        async function loadArchers() {
+            try {
+                const response = await fetch('/api/archers');
+                const archers = await response.json();
+
+                const list = document.getElementById('archer-list');
+
+                if (archers.length === 0) {
+                    list.innerHTML = '<li style="color: #888; cursor: default;">No archers yet. Import results to add archers.</li>';
+                    return;
+                }
+
+                list.innerHTML = archers.map(archer => `
+                    <li data-id="${archer.id}" onclick="handleArcherClick(event, ${archer.id}, '${archer.name}')">
+                        <input type="checkbox" id="chk-archer-${archer.id}" data-id="${archer.id}"
+                               onclick="event.stopPropagation()"
+                               onchange="handleArcherCheckbox(${archer.id}, '${archer.name}', this.checked)">
+                        <label for="chk-archer-${archer.id}" style="flex:1; cursor:pointer;">${archer.name}</label>
+                    </li>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading archers:', error);
+                document.getElementById('archer-list').innerHTML =
+                    '<li style="color: #ff6464;">Error loading archers</li>';
+            }
+        }
+
+        // Handle clicking anywhere on a list item (toggles the checkbox)
+        function handleArcherClick(event, archerId, archerName) {
+            // Avoid double-firing when the checkbox itself or its label was clicked
+            if (event.target.tagName === 'INPUT') return;
+            const chk = document.getElementById('chk-archer-' + archerId);
+            if (!chk) return;
+            chk.checked = !chk.checked;
+            handleArcherCheckbox(archerId, archerName, chk.checked);
+        }
+
+        // Called whenever a checkbox state changes
+        function handleArcherCheckbox(archerId, archerName, checked) {
+            if (checked) {
+                selectedArcherIds.add(archerId);
+            } else {
+                selectedArcherIds.delete(archerId);
+            }
+
+            // Keep selectedArcherId pointing at the first selected archer
+            if (selectedArcherIds.size > 0) {
+                selectedArcherId = [...selectedArcherIds][0];
+            } else {
+                selectedArcherId = null;
+            }
+
+            // Sync .selected class on list items
+            document.querySelectorAll('.archer-list li').forEach(li => {
+                li.classList.toggle('selected', selectedArcherIds.has(Number(li.dataset.id)));
+            });
+
+            refreshView();
+        }
+
+        // Decide what to show based on how many archers are selected
+        async function refreshView() {
+            const count = selectedArcherIds.size;
+            const statsSection = document.getElementById('stats-section');
+            const resultsSection = document.getElementById('results-section');
+
+            if (count === 0) {
+                statsSection.style.display = 'none';
+                resultsSection.style.display = 'block';
+                document.getElementById('results-body').innerHTML =
+                    '<tr><td colspan="6" style="text-align:center;color:#888;">Select an archer to view results</td></tr>';
+                chart.data.datasets = [];
+                chart.update();
+                return;
+            }
+
+            if (count === 1) {
+                // Single-archer: show stats + table (existing behaviour)
+                statsSection.style.display = 'block';
+                resultsSection.style.display = 'block';
+                await Promise.all([
+                    loadArcherResults(selectedArcherId),
+                    loadArcherStats(selectedArcherId),
+                    loadCurrentChart()
+                ]);
+            } else {
+                // Multi-archer comparison: hide stats + table, show comparison chart only
+                statsSection.style.display = 'none';
+                resultsSection.style.display = 'none';
+                await loadCurrentChart();
+            }
+        }
+
+        // Load filter options
+        async function loadFilters() {
+            try {
+                // Load categories
+                const catResponse = await fetch('/api/categories');
+                const categories = await catResponse.json();
+
+                const catSelect = document.getElementById('filter-category');
+                catSelect.innerHTML = '<option value="">All Categories</option>' +
+                    categories.map(c => `<option value="${c.code}">${c.code} - ${c.description}</option>`).join('');
+
+                // Load distances
+                const distResponse = await fetch('/api/distances');
+                const distances = await distResponse.json();
+
+                const distSelect = document.getElementById('filter-distance');
+                distSelect.innerHTML = '<option value="">All Distances</option>' +
+                    distances.map(d => `<option value="${d}">${d}</option>`).join('');
+            } catch (error) {
+                console.error('Error loading filters:', error);
+            }
+        }
+
+        // Select an archer (legacy helper — still used after import)
+        async function selectArcher(archerId, archerName) {
+            // Clear previous selection, select only this archer
+            selectedArcherIds.clear();
+            selectedArcherIds.add(archerId);
+            selectedArcherId = archerId;
+
+            // Sync checkboxes and .selected class
+            document.querySelectorAll('.archer-list li').forEach(li => {
+                const id = Number(li.dataset.id);
+                li.classList.toggle('selected', id === archerId);
+                const chk = li.querySelector('input[type="checkbox"]');
+                if (chk) chk.checked = (id === archerId);
+            });
+
+            await refreshView();
+        }
+
+        // Load archer results
+        async function loadArcherResults(archerId) {
+            const category = document.getElementById('filter-category').value;
+            const distance = document.getElementById('filter-distance').value;
+
+            let url = `/api/archers/${archerId}/results?`;
+            if (category) url += `category=${category}&`;
+            if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+
+            try {
+                const response = await fetch(url);
+                allResults = await response.json();
+                renderResults(allResults);
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+
+        // Load archer statistics
+        async function loadArcherStats(archerId) {
+            try {
+                const response = await fetch(`/api/archers/${archerId}/stats`);
+                const stats = await response.json();
+
+                document.getElementById('stats-section').style.display = 'block';
+                document.getElementById('stats-grid').innerHTML = `
+                    <div class="stat-card">
+                        <div class="value">${stats.total_competitions || 0}</div>
+                        <div class="label">Competitions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${Math.round(stats.avg_score) || 0}</div>
+                        <div class="label">Avg Score</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.best_score || 0}</div>
+                        <div class="label">Best Score</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.first_places || 0}</div>
+                        <div class="label">🥇 First Places</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load chart data for a single archer (time mode)
+        async function loadArcherChart(archerId) {
+            const category = document.getElementById('filter-category').value;
+            const distance = document.getElementById('filter-distance').value;
+
+            let url = `/api/chart/scores/${archerId}?`;
+            if (category) url += `category=${category}&`;
+            if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (chart.config.type !== 'line') {
+                    rebuildChart('line');
+                }
+
+                chart.data.datasets = data.datasets.map((ds, index) => ({
+                    label: ds.label,
+                    data: ds.dates.map((date, i) => ({
+                        x: new Date(date),
+                        y: ds.data[i]
+                    })),
+                    borderColor: chartColors[index % chartColors.length],
+                    backgroundColor: chartColors[index % chartColors.length] + '20',
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }));
+
+                chart.update();
+            } catch (error) {
+                console.error('Error loading chart:', error);
+            }
+        }
+
+        // Build query string for multiple archer IDs
+        function buildArcherIdsQuery(ids) {
+            return [...ids].map(id => `archer_ids=${id}`).join('&');
+        }
+
+        // Comparison chart — time mode (multiple archers)
+        async function loadCompareChart() {
+            const category = document.getElementById('filter-category').value;
+            const distance = document.getElementById('filter-distance').value;
+
+            let url = `/api/chart/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
+            if (category) url += `&category=${category}`;
+            if (distance) url += `&distance=${encodeURIComponent(distance)}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (chart.config.type !== 'line') {
+                    rebuildChart('line');
+                }
+
+                chart.data.datasets = data.datasets.map((ds, index) => ({
+                    label: ds.label,
+                    data: ds.dates.map((date, i) => ({
+                        x: new Date(date),
+                        y: ds.data[i]
+                    })),
+                    borderColor: chartColors[index % chartColors.length],
+                    backgroundColor: chartColors[index % chartColors.length] + '20',
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }));
+
+                chart.update();
+            } catch (error) {
+                console.error('Error loading comparison chart:', error);
+            }
+        }
+
+        // Comparison chart — yearly mode (multiple archers)
+        async function loadYearlyCompareChart() {
+            const url = `/api/chart/yearly/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                rebuildChart('bar');
+
+                if (!data.datasets || data.datasets.length === 0) {
+                    chart.data.labels = [];
+                    chart.data.datasets = [];
+                    chart.update();
+                    return;
+                }
+
+                // Union of all years, sorted
+                const allYears = [...new Set(
+                    data.datasets.flatMap(ds => ds.years || [])
+                )].sort();
+
+                chart.data.labels = allYears;
+                chart.data.datasets = data.datasets.map((ds, index) => {
+                    // Align data to the union year labels (null for missing years)
+                    const aligned = allYears.map(y => {
+                        const pos = (ds.years || []).indexOf(y);
+                        return pos >= 0 ? ds.data[pos] : null;
+                    });
+                    return {
+                        label: ds.label,
+                        type: 'bar',
+                        data: aligned,
+                        backgroundColor: chartColors[index % chartColors.length] + '55',
+                        borderColor: chartColors[index % chartColors.length],
+                        borderWidth: 1
+                    };
+                });
+
+                chart.update();
+            } catch (error) {
+                console.error('Error loading yearly comparison chart:', error);
+            }
+        }
+
+        // Render results table
+        function renderResults(results) {
+            const tbody = document.getElementById('results-body');
+
+            if (results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No results found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = results.map(r => `
+                <tr>
+                    <td>${formatDate(r.date)}</td>
+                    <td>${r.event_name}</td>
+                    <td>${r.distance}</td>
+                    <td>${r.category}</td>
+                    <td><strong>${r.score}</strong></td>
+                    <td>${getPlacementBadge(r.placement)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Format date
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        // Get placement badge
+        function getPlacementBadge(placement) {
+            if (!placement) return '-';
+            if (placement <= 3) {
+                return `<span class="placement-badge placement-${placement}">${placement}</span>`;
+            }
+            return placement;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            if (selectedArcherIds.size > 0) {
+                refreshView();
+            }
+        }
+
+        // Import results
+        async function importResults() {
+            const archerName = document.getElementById('archer-name').value.trim();
+            const fileInput = document.getElementById('html-file');
+            const alertDiv = document.getElementById('import-alert');
+
+            if (!archerName) {
+                showAlert(alertDiv, 'Please enter archer name', 'error');
+                return;
+            }
+
+            if (!fileInput.files.length) {
+                showAlert(alertDiv, 'Please select an HTML file', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('archer_name', archerName);
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/api/import/file', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert(alertDiv, result.message, 'success');
+
+                    // Reset form
+                    document.getElementById('archer-name').value = '';
+                    fileInput.value = '';
+                    document.getElementById('file-label').textContent = '📄 Drop HTML file here or click to browse';
+                    document.getElementById('file-label').classList.remove('has-file');
+
+                    // Reload archers list and filters
+                    loadArchers();
+                    loadFilters();
+
+                    // Select the new archer
+                    setTimeout(() => selectArcher(result.archer_id, archerName), 500);
+                } else {
+                    showAlert(alertDiv, result.error || 'Import failed', 'error');
+                }
+            } catch (error) {
+                showAlert(alertDiv, 'Error importing results: ' + error.message, 'error');
+            }
+        }
+
+        // Chart mode toggle
+        function setChartMode(mode) {
+            chartMode = mode;
+            document.getElementById('toggle-time').classList.toggle('active', mode === 'time');
+            document.getElementById('toggle-yearly').classList.toggle('active', mode === 'yearly');
+            if (selectedArcherIds.size > 0) {
+                loadCurrentChart();
+            }
+        }
+
+        // Dispatcher: load correct chart based on current mode and selection count
+        function loadCurrentChart() {
+            const multi = selectedArcherIds.size > 1;
+            if (chartMode === 'yearly') {
+                return multi
+                    ? loadYearlyCompareChart()
+                    : loadYearlyChart(selectedArcherId);
+            }
+            return multi
+                ? loadCompareChart()
+                : loadArcherChart(selectedArcherId);
+        }
+
+        // Rebuild chart with a new type (destroys existing instance)
+        function rebuildChart(type) {
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+            const ctx = document.getElementById('scores-chart').getContext('2d');
+            if (type === 'bar') {
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#e0e0e0' } },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                titleColor: '#00d4ff',
+                                bodyColor: '#e0e0e0',
+                                callbacks: {
+                                    afterLabel: function(context) {
+                                        const ds = context.dataset;
+                                        if (ds._competitions) {
+                                            return 'Stevner: ' + ds._competitions[context.dataIndex];
+                                        }
+                                        return '';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                            y: { beginAtZero: false, ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                        }
+                    }
+                });
+            } else {
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#e0e0e0' } },
+                            tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#00d4ff', bodyColor: '#e0e0e0' }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } },
+                                ticks: { color: '#888' },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            y: { beginAtZero: false, ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                        }
+                    }
+                });
+            }
+            return chart;
+        }
+
+        // Load yearly average chart (single archer)
+        async function loadYearlyChart(archerId) {
+            const category = document.getElementById('filter-category').value;
+            const distance = document.getElementById('filter-distance').value;
+
+            let url = `/api/chart/yearly/${archerId}?`;
+            if (category) url += `category=${category}&`;
+            if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                rebuildChart('bar');
+
+                if (!data.datasets || data.datasets.length === 0) {
+                    chart.data.labels = [];
+                    chart.data.datasets = [];
+                    chart.update();
+                    return;
+                }
+
+                const avgDs = data.datasets.find(d => d.label === 'Snitt');
+                const bestDs = data.datasets.find(d => d.label === 'Best');
+                const years = avgDs ? avgDs.years : (bestDs ? bestDs.years : []);
+
+                chart.data.labels = years;
+                chart.data.datasets = [];
+
+                if (avgDs) {
+                    const ds = {
+                        label: 'Snitt',
+                        type: 'bar',
+                        data: avgDs.data,
+                        backgroundColor: 'rgba(0, 212, 255, 0.35)',
+                        borderColor: 'rgba(0, 212, 255, 0.8)',
+                        borderWidth: 1,
+                        _competitions: avgDs.competitions || []
+                    };
+                    chart.data.datasets.push(ds);
+                }
+
+                if (bestDs) {
+                    chart.data.datasets.push({
+                        label: 'Best',
+                        type: 'line',
+                        data: bestDs.data,
+                        borderColor: '#ff6384',
+                        backgroundColor: 'transparent',
+                        pointRadius: 5,
+                        pointHoverRadius: 8,
+                        tension: 0.2
+                    });
+                }
+
+                chart.update();
+            } catch (error) {
+                console.error('Error loading yearly chart:', error);
+            }
+        }
+
+        // Show alert
+        function showAlert(container, message, type) {
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

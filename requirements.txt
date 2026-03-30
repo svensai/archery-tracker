@@ -1,0 +1,22 @@
+# Web scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# Web server
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Database
+# SQLite is built into Python
+# PostgreSQL (optional — only needed when DATABASE_URL is set)
+psycopg2-binary>=2.9
+
+# Date parsing
+python-dateutil>=2.8.0
+
+# Scheduling
+apscheduler>=3.10.0
+
+# Testing
+pytest>=8.0.0
