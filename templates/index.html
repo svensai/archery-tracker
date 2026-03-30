@@ -53,6 +53,46 @@
             .grid {
                 grid-template-columns: 1fr;
             }
+
+            header h1 { font-size: 1.6rem; }
+
+            .chart-container { height: 280px; }
+
+            .stat-card .value { font-size: 1.4rem; }
+
+            .filters .date-range { flex-direction: column; gap: 6px; }
+
+            .results-table th,
+            .results-table td { padding: 8px 6px; font-size: 13px; }
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+
+            header { padding: 16px 0; margin-bottom: 16px; }
+            header h1 { font-size: 1.3rem; }
+
+            .card { padding: 14px; border-radius: 10px; }
+
+            .chart-container { height: 240px; padding: 10px; }
+
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+            .stat-card { padding: 10px; }
+            .stat-card .value { font-size: 1.2rem; }
+
+            /* Stack chart toggles */
+            .chart-toggle { flex-wrap: wrap; gap: 4px; }
+            .btn-toggle { font-size: 12px; padding: 5px 10px; }
+
+            /* Hide Per-60 and Event columns on very small screens */
+            .results-table th:nth-child(2),
+            .results-table td:nth-child(2),
+            .results-table th:nth-child(6),
+            .results-table td:nth-child(6) { display: none; }
+
+            .filters select,
+            .filters input[type="date"] { min-width: 0; }
         }
 
         .card {
@@ -394,6 +434,27 @@
             background: rgba(255, 255, 255, 0.05);
             color: #ccc;
         }
+
+        /* Archer search */
+        .archer-search {
+            width: 100%;
+            padding: 9px 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #e0e0e0;
+            font-size: 13px;
+        }
+
+        .archer-search::placeholder { color: #555; }
+
+        .archer-search:focus {
+            outline: none;
+            border-color: rgba(0, 212, 255, 0.4);
+        }
+
+        .archer-list li.hidden { display: none; }
     </style>
 </head>
 <body>
@@ -420,10 +481,13 @@
                 <!-- Archers List -->
                 <div class="card">
                     <h2>👥 Archers</h2>
+                    <input type="text" class="archer-search" id="archer-search"
+                           placeholder="Search by name or ID…"
+                           oninput="filterArcherList(this.value)">
                     <ul class="archer-list" id="archer-list">
                         <li class="loading">Loading archers...</li>
                     </ul>
-                    <p class="archer-hint">Select multiple to compare</p>
+                    <p class="archer-hint">Select multiple to compare — or leave all unchecked to compare everyone</p>
                 </div>
 
                 <!-- Filters -->
@@ -503,6 +567,7 @@
         // Global state
         let selectedArcherId = null;       // first/only selected archer (backwards compat)
         let selectedArcherIds = new Set(); // all currently checked archers
+        let allArchers = [];               // full archer list fetched from API
         let chart = null;
         let allResults = [];
         let chartMode = 'time'; // 'time' | 'yearly'
@@ -514,10 +579,11 @@
         ];
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            loadArchers();
-            loadFilters();
+        document.addEventListener('DOMContentLoaded', async () => {
             initChart();
+            await loadArchers();   // populates allArchers
+            await loadFilters();
+            refreshView();         // auto-compare all on first load
 
             // File input handler
             document.getElementById('html-file').addEventListener('change', (e) => {
@@ -537,31 +603,64 @@
             rebuildChart('line');
         }
 
-        // Load archers list
+        // Render archer list items (optionally filtered by search term)
+        function renderArcherList(archers) {
+            const list = document.getElementById('archer-list');
+            if (archers.length === 0) {
+                list.innerHTML = '<li style="color:#888;cursor:default;">No archers match your search.</li>';
+                return;
+            }
+            list.innerHTML = archers.map(archer => {
+                const checked = selectedArcherIds.has(archer.id) ? 'checked' : '';
+                const selected = selectedArcherIds.has(archer.id) ? 'class="selected"' : '';
+                const safeName = archer.name.replace(/'/g, "\\'");
+                return `
+                    <li data-id="${archer.id}" ${selected}
+                        onclick="handleArcherClick(event, ${archer.id}, '${safeName}')">
+                        <input type="checkbox" id="chk-archer-${archer.id}" data-id="${archer.id}"
+                               ${checked}
+                               onclick="event.stopPropagation()"
+                               onchange="handleArcherCheckbox(${archer.id}, '${safeName}', this.checked)">
+                        <label for="chk-archer-${archer.id}" style="flex:1;cursor:pointer;">
+                            ${archer.name}
+                            <span style="color:#555;font-size:11px;margin-left:6px;">#${archer.id}</span>
+                        </label>
+                    </li>`;
+            }).join('');
+        }
+
+        // Filter the visible archer list by name or ID
+        function filterArcherList(query) {
+            const q = query.trim().toLowerCase();
+            const filtered = q
+                ? allArchers.filter(a =>
+                    a.name.toLowerCase().includes(q) ||
+                    String(a.id).includes(q) ||
+                    (a.external_id != null && String(a.external_id).includes(q))
+                  )
+                : allArchers;
+            renderArcherList(filtered);
+        }
+
+        // Load archers list from API and cache in allArchers
         async function loadArchers() {
             try {
                 const response = await fetch('/api/archers');
-                const archers = await response.json();
+                allArchers = await response.json();
 
                 const list = document.getElementById('archer-list');
-
-                if (archers.length === 0) {
-                    list.innerHTML = '<li style="color: #888; cursor: default;">No archers yet. Import results to add archers.</li>';
+                if (allArchers.length === 0) {
+                    list.innerHTML = '<li style="color:#888;cursor:default;">No archers yet. Import results to add archers.</li>';
                     return;
                 }
 
-                list.innerHTML = archers.map(archer => `
-                    <li data-id="${archer.id}" onclick="handleArcherClick(event, ${archer.id}, '${archer.name}')">
-                        <input type="checkbox" id="chk-archer-${archer.id}" data-id="${archer.id}"
-                               onclick="event.stopPropagation()"
-                               onchange="handleArcherCheckbox(${archer.id}, '${archer.name}', this.checked)">
-                        <label for="chk-archer-${archer.id}" style="flex:1; cursor:pointer;">${archer.name}</label>
-                    </li>
-                `).join('');
+                // Preserve any active search when reloading
+                const query = document.getElementById('archer-search')?.value || '';
+                filterArcherList(query);
             } catch (error) {
                 console.error('Error loading archers:', error);
                 document.getElementById('archer-list').innerHTML =
-                    '<li style="color: #ff6464;">Error loading archers</li>';
+                    '<li style="color:#ff6464;">Error loading archers</li>';
             }
         }
 
@@ -605,17 +704,20 @@
             const resultsSection = document.getElementById('results-section');
 
             if (count === 0) {
+                // No manual selection — compare ALL archers using current filters
                 statsSection.style.display = 'none';
-                resultsSection.style.display = 'block';
-                document.getElementById('results-body').innerHTML =
-                    '<tr><td colspan="6" style="text-align:center;color:#888;">Select an archer to view results</td></tr>';
-                chart.data.datasets = [];
-                chart.update();
+                resultsSection.style.display = 'none';
+                if (allArchers.length > 0) {
+                    await loadCurrentChart(allArchers.map(a => a.id));
+                } else {
+                    chart.data.datasets = [];
+                    chart.update();
+                }
                 return;
             }
 
             if (count === 1) {
-                // Single-archer: show stats + table (existing behaviour)
+                // Single archer selected: show stats + table + chart
                 statsSection.style.display = 'block';
                 resultsSection.style.display = 'block';
                 await Promise.all([
@@ -624,7 +726,7 @@
                     loadCurrentChart()
                 ]);
             } else {
-                // Multi-archer comparison: hide stats + table, show comparison chart only
+                // Multiple archers selected: comparison chart only
                 statsSection.style.display = 'none';
                 resultsSection.style.display = 'none';
                 await loadCurrentChart();
@@ -768,16 +870,18 @@
             }
         }
 
-        // Build query string for multiple archer IDs
+        // Build query string for multiple archer IDs (accepts Set or Array)
         function buildArcherIdsQuery(ids) {
-            return [...ids].map(id => `archer_ids=${id}`).join('&');
+            return Array.from(ids).map(id => `archer_ids=${id}`).join('&');
         }
 
         // Comparison chart — time mode (multiple archers)
-        async function loadCompareChart() {
+        // ids: optional array override; falls back to selectedArcherIds
+        async function loadCompareChart(ids) {
             const { category, distance, date_from, date_to } = getFilters();
+            const idSet = ids || selectedArcherIds;
 
-            let url = `/api/chart/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
+            let url = `/api/chart/compare?${buildArcherIdsQuery(idSet)}`;
             if (category) url += `&category=${category}`;
             if (distance) url += `&distance=${encodeURIComponent(distance)}`;
             if (date_from) url += `&date_from=${date_from}`;
@@ -811,9 +915,10 @@
         }
 
         // Comparison chart — yearly mode (multiple archers)
-        async function loadYearlyCompareChart() {
+        async function loadYearlyCompareChart(ids) {
             const { category, distance, date_from, date_to } = getFilters();
-            let url = `/api/chart/yearly/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
+            const idSet = ids || selectedArcherIds;
+            let url = `/api/chart/yearly/compare?${buildArcherIdsQuery(idSet)}`;
             if (category) url += `&category=${category}`;
             if (distance) url += `&distance=${encodeURIComponent(distance)}`;
             if (date_from) url += `&date_from=${date_from}`;
@@ -969,17 +1074,19 @@
             }
         }
 
-        // Dispatcher: load correct chart based on current mode and selection count
-        function loadCurrentChart() {
-            const multi = selectedArcherIds.size > 1;
+        // Dispatcher: load correct chart based on current mode and selection count.
+        // Pass an explicit ids array to override the selection (used for auto-compare-all).
+        function loadCurrentChart(idsOverride) {
+            const ids = idsOverride || [...selectedArcherIds];
+            const multi = ids.length > 1;
             if (chartMode === 'yearly') {
                 return multi
-                    ? loadYearlyCompareChart()
-                    : loadYearlyChart(selectedArcherId);
+                    ? loadYearlyCompareChart(ids)
+                    : loadYearlyChart(ids[0]);
             }
             return multi
-                ? loadCompareChart()
-                : loadArcherChart(selectedArcherId);
+                ? loadCompareChart(ids)
+                : loadArcherChart(ids[0]);
         }
 
         // Rebuild chart with a new type (destroys existing instance)
