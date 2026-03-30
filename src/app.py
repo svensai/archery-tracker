@@ -68,8 +68,10 @@ def api_get_archer_results(archer_id):
     """Get results for an archer with optional filtering."""
     category = request.args.get('category')
     distance = request.args.get('distance')
-    
-    results = get_archer_results(archer_id, category, distance)
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    results = get_archer_results(archer_id, category, distance, date_from, date_to)
     return jsonify(results)
 
 
@@ -85,8 +87,10 @@ def api_get_results():
     """Get all results with optional filtering."""
     category = request.args.get('category')
     distance = request.args.get('distance')
-    
-    results = get_all_results(category, distance)
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    results = get_all_results(category, distance, date_from, date_to)
     return jsonify(results)
 
 
@@ -231,8 +235,10 @@ def api_chart_scores(archer_id):
     """
     category = request.args.get('category')
     distance = request.args.get('distance')
-    
-    results = get_archer_results(archer_id, category, distance)
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    results = get_archer_results(archer_id, category, distance, date_from, date_to)
     
     # Sort by date ascending for chronological chart
     results.sort(key=lambda x: x['date'])
@@ -264,23 +270,26 @@ def api_chart_compare():
     archer_ids = request.args.getlist('archer_ids', type=int)
     category = request.args.get('category')
     distance = request.args.get('distance')
-    
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
     if not archer_ids:
         return jsonify({'error': 'archer_ids required'}), 400
-    
+
     datasets = []
     for archer_id in archer_ids:
-        results = get_archer_results(archer_id, category, distance)
+        results = get_archer_results(archer_id, category, distance, date_from, date_to)
         results.sort(key=lambda x: x['date'])
-        
+
         if results:
             archer_name = results[0]['archer_name']
             datasets.append({
                 'label': archer_name,
                 'data': [r['score'] for r in results],
-                'dates': [r['date'] for r in results]
+                'score_per_60': [r['score_per_60'] for r in results],
+                'dates': [r['date'] for r in results],
             })
-    
+
     return jsonify({'datasets': datasets})
 
 
@@ -288,12 +297,14 @@ def api_chart_compare():
 def api_chart_yearly(archer_id):
     """
     Get per-year average and best scores for one archer.
-    Optional query params: category, distance.
+    Optional query params: category, distance, date_from, date_to.
     """
     category = request.args.get('category')
     distance = request.args.get('distance')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
 
-    rows = get_archer_yearly_stats(archer_id, category, distance)
+    rows = get_archer_yearly_stats(archer_id, category, distance, date_from, date_to)
 
     archers = get_all_archers()
     archer_name = next((a['name'] for a in archers if a['id'] == archer_id), '')
@@ -322,11 +333,13 @@ def api_chart_yearly(archer_id):
 def api_chart_yearly_compare():
     """
     Compare yearly average scores across multiple archers.
-    Query params: archer_ids (multi), category, distance.
+    Query params: archer_ids (multi), category, distance, date_from, date_to.
     """
     archer_ids = request.args.getlist('archer_ids', type=int)
     category = request.args.get('category')
     distance = request.args.get('distance')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
 
     if not archer_ids:
         return jsonify({'error': 'archer_ids required'}), 400
@@ -337,7 +350,7 @@ def api_chart_yearly_compare():
     archer_name_map = {a['id']: a['name'] for a in archers}
 
     for archer_id in archer_ids:
-        rows = get_archer_yearly_stats(archer_id, category, distance)
+        rows = get_archer_yearly_stats(archer_id, category, distance, date_from, date_to)
         archer_rows[archer_id] = {r['year']: r for r in rows}
         all_years.update(r['year'] for r in rows)
 

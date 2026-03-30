@@ -7,17 +7,35 @@ PostgreSQL connection string to use PostgreSQL instead:
     export DATABASE_URL=postgresql://user:password@localhost:5432/archery
 """
 
+import sqlite3
 import os
-
-# If DATABASE_URL is set, delegate everything to the PostgreSQL implementation.
-if os.environ.get('DATABASE_URL'):
-    from src.db_postgres import *  # noqa: F401, F403
-else:
-    import sqlite3
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'archery.db')
+
+# Number of arrows shot in each competition format.
+# Used to normalise scores to a "per-60-arrows" basis for fair comparison.
+ARROWS_BY_DISTANCE: dict = {
+    '18 m':       60,
+    '25 m':       60,
+    '720-runde':  72,
+    '720 runde':  72,
+    '1440-runde': 144,
+    '1440 runde': 144,
+    '900':        90,
+    '900-runde':  90,
+    '50 m':       72,
+    '70 m':       72,
+    '60 m':       72,
+    '90 m':       36,
+}
+
+
+def score_per_60(score: int, distance: str) -> float:
+    """Return score normalised to a 60-arrow basis."""
+    arrows = ARROWS_BY_DISTANCE.get(distance, 60)
+    return round(score / arrows * 60, 1)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -250,11 +268,17 @@ def get_all_archers() -> List[Dict[str, Any]]:
     return archers
 
 
-def get_archer_results(archer_id: int, category: Optional[str] = None, distance: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_archer_results(
+    archer_id: int,
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """Get all results for an archer with optional filtering."""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     query = '''
         SELECT r.*, e.name as event_name, e.event_id as external_event_id, a.name as archer_name
         FROM results r
@@ -263,28 +287,42 @@ def get_archer_results(archer_id: int, category: Optional[str] = None, distance:
         WHERE r.archer_id = ?
     '''
     params = [archer_id]
-    
+
     if category:
         query += ' AND r.category = ?'
         params.append(category)
-    
     if distance:
         query += ' AND r.distance = ?'
         params.append(distance)
-    
+    if date_from:
+        query += ' AND r.date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND r.date <= ?'
+        params.append(date_to)
+
     query += ' ORDER BY r.date DESC'
-    
+
     cursor.execute(query, params)
-    results = [dict(row) for row in cursor.fetchall()]
+    results = []
+    for row in cursor.fetchall():
+        r = dict(row)
+        r['score_per_60'] = score_per_60(r['score'], r['distance'])
+        results.append(r)
     conn.close()
     return results
 
 
-def get_all_results(category: Optional[str] = None, distance: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_all_results(
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """Get all results with optional filtering."""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     query = '''
         SELECT r.*, e.name as event_name, e.event_id as external_event_id, a.name as archer_name
         FROM results r
@@ -293,19 +331,28 @@ def get_all_results(category: Optional[str] = None, distance: Optional[str] = No
         WHERE 1=1
     '''
     params = []
-    
+
     if category:
         query += ' AND r.category = ?'
         params.append(category)
-    
     if distance:
         query += ' AND r.distance = ?'
         params.append(distance)
-    
+    if date_from:
+        query += ' AND r.date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND r.date <= ?'
+        params.append(date_to)
+
     query += ' ORDER BY r.date DESC'
-    
+
     cursor.execute(query, params)
-    results = [dict(row) for row in cursor.fetchall()]
+    results = []
+    for row in cursor.fetchall():
+        r = dict(row)
+        r['score_per_60'] = score_per_60(r['score'], r['distance'])
+        results.append(r)
     conn.close()
     return results
 
@@ -370,7 +417,9 @@ def get_archer_stats(archer_id: int) -> Dict[str, Any]:
 def get_archer_yearly_stats(
     archer_id: int,
     category: Optional[str] = None,
-    distance: Optional[str] = None
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Get per-year aggregate statistics for an archer.
@@ -399,6 +448,12 @@ def get_archer_yearly_stats(
     if distance:
         query += ' AND distance = ?'
         params.append(distance)
+    if date_from:
+        query += ' AND date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND date <= ?'
+        params.append(date_to)
 
     query += ' GROUP BY strftime(\'%Y\', date) ORDER BY year ASC'
 
@@ -730,3 +785,29 @@ def get_sync_stats() -> Dict[str, Any]:
 
 if __name__ == '__main__':
     init_database()
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL override
+# When DATABASE_URL is set, replace all SQLite functions with the Postgres
+# equivalents. This must be at the bottom so the postgres functions shadow
+# the sqlite ones defined above.
+# ---------------------------------------------------------------------------
+if os.environ.get('DATABASE_URL'):
+    try:
+        from src.db_postgres import (  # noqa: F401, F811
+            init_database, get_connection,
+            add_archer, add_event, add_result,
+            get_all_archers, get_archer_results, get_all_results,
+            get_categories, get_distances,
+            get_archer_stats, get_archer_yearly_stats,
+            add_archer_with_external_id, get_archer_by_external_id,
+            upsert_sync_status, get_sync_status, get_all_sync_status,
+            get_max_external_id, mark_archer_not_found,
+            log_sync_error, get_unresolved_errors, resolve_error,
+            start_sync_log, update_sync_log, get_recent_sync_logs,
+            get_sync_stats,
+        )
+    except ImportError as _e:
+        import warnings
+        warnings.warn(f"DATABASE_URL set but psycopg2 not available ({_e}). Falling back to SQLite.")

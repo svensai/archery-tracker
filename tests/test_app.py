@@ -257,3 +257,133 @@ class TestSyncEndpoints:
     def test_stop_sync_when_not_running(self, flask_client):
         resp = flask_client.post('/api/sync/stop')
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# /api/archers/<id>/results — date filtering
+# ---------------------------------------------------------------------------
+
+class TestDateFiltering:
+    def _seed(self, flask_client):
+        """Insert an archer with results spread across 2022-2025."""
+        import json as _j
+        from src.database import add_archer, add_event, add_result
+
+        archer_id = _j.loads(flask_client.post(
+            '/api/archers',
+            data=_j.dumps({'name': 'DateFilterArcher'}),
+            content_type='application/json',
+        ).data)['id']
+
+        for i, (eid, date, score) in enumerate([
+            ('DF1', '2022-03-10', 490),
+            ('DF2', '2023-09-01', 510),
+            ('DF3', '2024-04-15', 530),
+            ('DF4', '2025-01-20', 550),
+        ]):
+            ev = add_event(eid, f'DateEvent{i}')
+            add_result(archer_id=archer_id, event_id=ev, date=date,
+                       distance='18 m', category='C1', score=score)
+        return archer_id
+
+    def test_date_from_filters_results(self, flask_client):
+        archer_id = self._seed(flask_client)
+        resp = flask_client.get(f'/api/archers/{archer_id}/results?date_from=2024-01-01')
+        results = _json(resp)
+        assert resp.status_code == 200
+        assert all(r['date'] >= '2024-01-01' for r in results)
+        assert len(results) == 2
+
+    def test_date_to_filters_results(self, flask_client):
+        archer_id = self._seed(flask_client)
+        resp = flask_client.get(f'/api/archers/{archer_id}/results?date_to=2022-12-31')
+        results = _json(resp)
+        assert len(results) == 1
+        assert results[0]['date'] == '2022-03-10'
+
+    def test_date_range_filters_results(self, flask_client):
+        archer_id = self._seed(flask_client)
+        resp = flask_client.get(
+            f'/api/archers/{archer_id}/results?date_from=2023-01-01&date_to=2024-12-31'
+        )
+        results = _json(resp)
+        assert len(results) == 2
+        dates = {r['date'] for r in results}
+        assert dates == {'2023-09-01', '2024-04-15'}
+
+    def test_results_include_score_per_60(self, flask_client):
+        archer_id = self._seed(flask_client)
+        resp = flask_client.get(f'/api/archers/{archer_id}/results')
+        results = _json(resp)
+        assert all('score_per_60' in r for r in results)
+        # 18m = 60 arrows, so score_per_60 == score
+        for r in results:
+            assert r['score_per_60'] == float(r['score'])
+
+    def test_chart_compare_with_date_range(self, flask_client):
+        archer_id = self._seed(flask_client)
+        resp = flask_client.get(
+            f'/api/chart/compare?archer_ids={archer_id}&date_from=2024-01-01'
+        )
+        assert resp.status_code == 200
+        data = _json(resp)
+        assert len(data['datasets']) == 1
+        # Only 2025 and 2024 results
+        assert len(data['datasets'][0]['dates']) == 2
+
+    def test_chart_compare_score_per_60_present(self, flask_client):
+        archer_id = self._seed(flask_client)
+        resp = flask_client.get(f'/api/chart/compare?archer_ids={archer_id}')
+        data = _json(resp)
+        assert 'score_per_60' in data['datasets'][0]
+
+
+# ---------------------------------------------------------------------------
+# /api/backup endpoints
+# ---------------------------------------------------------------------------
+
+class TestBackupEndpoints:
+    def test_create_backup_returns_200(self, flask_client, monkeypatch, tmp_path):
+        backup_dir = str(tmp_path / 'backups')
+        monkeypatch.setattr('src.backup.DATABASE_PATH', flask_client.application.config.get(
+            'DATABASE_PATH', str(tmp_path / 'archery.db')))
+        monkeypatch.setattr('src.backup.BACKUP_DIR', backup_dir)
+        # Ensure there is a (possibly empty) sqlite file to back up
+        import sqlite3, os
+        db_path = str(tmp_path / 'archery.db')
+        monkeypatch.setattr('src.backup.DATABASE_PATH', db_path)
+        sqlite3.connect(db_path).close()
+
+        resp = flask_client.post(
+            '/api/backup',
+            data=json.dumps({'label': 'test'}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        body = _json(resp)
+        assert 'filename' in body
+        assert 'size_bytes' in body
+        assert body['filename'].endswith('.db')
+
+    def test_list_backups_returns_list(self, flask_client, monkeypatch, tmp_path):
+        monkeypatch.setattr('src.backup.BACKUP_DIR', str(tmp_path / 'backups'))
+        resp = flask_client.get('/api/backup/list')
+        assert resp.status_code == 200
+        assert isinstance(_json(resp), list)
+
+    def test_restore_backup_missing_filename(self, flask_client):
+        resp = flask_client.post(
+            '/api/backup/restore',
+            data=json.dumps({}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 400
+
+    def test_restore_backup_nonexistent_file(self, flask_client, monkeypatch, tmp_path):
+        monkeypatch.setattr('src.backup.BACKUP_DIR', str(tmp_path / 'backups'))
+        resp = flask_client.post(
+            '/api/backup/restore',
+            data=json.dumps({'filename': 'nonexistent.db'}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 404

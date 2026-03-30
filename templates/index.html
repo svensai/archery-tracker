@@ -205,7 +205,8 @@
             flex-wrap: wrap;
         }
 
-        .filters select {
+        .filters select,
+        .filters input[type="date"] {
             flex: 1;
             min-width: 120px;
             padding: 10px;
@@ -213,6 +214,25 @@
             border-radius: 8px;
             background: rgba(0, 0, 0, 0.3);
             color: #e0e0e0;
+            font-size: 14px;
+            color-scheme: dark;
+        }
+
+        .filters .date-range {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .filters .date-range label {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .filters .date-range > div {
+            flex: 1;
         }
 
         /* Chart Container */
@@ -416,6 +436,16 @@
                         <select id="filter-distance" onchange="applyFilters()">
                             <option value="">All Distances</option>
                         </select>
+                        <div class="date-range">
+                            <div>
+                                <label for="filter-date-from">From</label>
+                                <input type="date" id="filter-date-from" onchange="applyFilters()">
+                            </div>
+                            <div>
+                                <label for="filter-date-to">To</label>
+                                <input type="date" id="filter-date-to" onchange="applyFilters()">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -455,6 +485,7 @@
                                     <th>Distance</th>
                                     <th>Category</th>
                                     <th>Score</th>
+                                    <th title="Score normalised to 60 arrows">Per 60</th>
                                     <th>Place</th>
                                 </tr>
                             </thead>
@@ -641,14 +672,25 @@
             await refreshView();
         }
 
+        // Read all active filter values
+        function getFilters() {
+            return {
+                category: document.getElementById('filter-category').value,
+                distance: document.getElementById('filter-distance').value,
+                date_from: document.getElementById('filter-date-from').value,
+                date_to: document.getElementById('filter-date-to').value,
+            };
+        }
+
         // Load archer results
         async function loadArcherResults(archerId) {
-            const category = document.getElementById('filter-category').value;
-            const distance = document.getElementById('filter-distance').value;
+            const { category, distance, date_from, date_to } = getFilters();
 
             let url = `/api/archers/${archerId}/results?`;
             if (category) url += `category=${category}&`;
             if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+            if (date_from) url += `date_from=${date_from}&`;
+            if (date_to) url += `date_to=${date_to}&`;
 
             try {
                 const response = await fetch(url);
@@ -691,12 +733,13 @@
 
         // Load chart data for a single archer (time mode)
         async function loadArcherChart(archerId) {
-            const category = document.getElementById('filter-category').value;
-            const distance = document.getElementById('filter-distance').value;
+            const { category, distance, date_from, date_to } = getFilters();
 
             let url = `/api/chart/scores/${archerId}?`;
             if (category) url += `category=${category}&`;
             if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+            if (date_from) url += `date_from=${date_from}&`;
+            if (date_to) url += `date_to=${date_to}&`;
 
             try {
                 const response = await fetch(url);
@@ -732,12 +775,13 @@
 
         // Comparison chart — time mode (multiple archers)
         async function loadCompareChart() {
-            const category = document.getElementById('filter-category').value;
-            const distance = document.getElementById('filter-distance').value;
+            const { category, distance, date_from, date_to } = getFilters();
 
             let url = `/api/chart/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
             if (category) url += `&category=${category}`;
             if (distance) url += `&distance=${encodeURIComponent(distance)}`;
+            if (date_from) url += `&date_from=${date_from}`;
+            if (date_to) url += `&date_to=${date_to}`;
 
             try {
                 const response = await fetch(url);
@@ -768,7 +812,12 @@
 
         // Comparison chart — yearly mode (multiple archers)
         async function loadYearlyCompareChart() {
-            const url = `/api/chart/yearly/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
+            const { category, distance, date_from, date_to } = getFilters();
+            let url = `/api/chart/yearly/compare?${buildArcherIdsQuery(selectedArcherIds)}`;
+            if (category) url += `&category=${category}`;
+            if (distance) url += `&distance=${encodeURIComponent(distance)}`;
+            if (date_from) url += `&date_from=${date_from}`;
+            if (date_to) url += `&date_to=${date_to}`;
 
             try {
                 const response = await fetch(url);
@@ -827,6 +876,7 @@
                     <td>${r.distance}</td>
                     <td>${r.category}</td>
                     <td><strong>${r.score}</strong></td>
+                    <td style="color:#aaa">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
                     <td>${getPlacementBadge(r.placement)}</td>
                 </tr>
             `).join('');

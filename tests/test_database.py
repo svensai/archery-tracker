@@ -15,7 +15,36 @@ from src.database import (
     log_sync_error, get_unresolved_errors, resolve_error,
     start_sync_log, update_sync_log, get_recent_sync_logs,
     get_sync_stats,
+    score_per_60, ARROWS_BY_DISTANCE,
 )
+
+
+# ---------------------------------------------------------------------------
+# score_per_60 helper
+# ---------------------------------------------------------------------------
+
+class TestScorePer60:
+    def test_18m_is_identity(self):
+        """18m = 60 arrows, so score_per_60 should equal the raw score."""
+        assert score_per_60(540, '18 m') == 540.0
+
+    def test_25m_is_identity(self):
+        assert score_per_60(570, '25 m') == 570.0
+
+    def test_720_runde_normalised(self):
+        """720-runde = 72 arrows → score_per_60 = score/72*60."""
+        assert score_per_60(720, '720-runde') == round(720 / 72 * 60, 1)
+
+    def test_1440_runde_normalised(self):
+        assert score_per_60(1200, '1440-runde') == round(1200 / 144 * 60, 1)
+
+    def test_unknown_distance_defaults_to_60(self):
+        """Unrecognised distances default to 60 arrows."""
+        assert score_per_60(400, 'Ukjent format') == 400.0
+
+    def test_arrows_by_distance_has_expected_keys(self):
+        for dist in ('18 m', '25 m', '720-runde', '1440-runde', '900-runde'):
+            assert dist in ARROWS_BY_DISTANCE
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +126,25 @@ class TestResults:
         assert len(results) == 1
         assert results[0]['score'] == 558
 
+    def test_result_includes_score_per_60(self, tmp_db):
+        """Results returned from get_archer_results must contain score_per_60."""
+        archer_id = add_archer('ScoreArcher')
+        ev = add_event('SP1', 'Event')
+        add_result(archer_id=archer_id, event_id=ev, date='2026-01-01',
+                   distance='18 m', category='C1', score=540)
+        results = get_archer_results(archer_id)
+        assert 'score_per_60' in results[0]
+        assert results[0]['score_per_60'] == 540.0  # 18m = 60 arrows
+
+    def test_score_per_60_normalised_for_720(self, tmp_db):
+        """720-runde results should have score_per_60 < score."""
+        archer_id = add_archer('OutdoorArcher')
+        ev = add_event('OUT1', 'Outdoor Event')
+        add_result(archer_id=archer_id, event_id=ev, date='2026-06-15',
+                   distance='720-runde', category='C1', score=648)
+        results = get_archer_results(archer_id)
+        assert results[0]['score_per_60'] == round(648 / 72 * 60, 1)
+
     def test_duplicate_result_does_not_raise(self, tmp_db):
         archer_id, event_id = self._setup_archer_event(tmp_db)
         kwargs = dict(archer_id=archer_id, event_id=event_id,
@@ -118,6 +166,70 @@ class TestResults:
         c1_results = get_archer_results(archer_id, category='C1')
         assert len(c1_results) == 1
         assert c1_results[0]['category'] == 'C1'
+
+    def test_get_archer_results_filter_by_date_from(self, tmp_db):
+        archer_id = add_archer('DateArcher')
+        ev1 = add_event('D1', 'Old Event')
+        ev2 = add_event('D2', 'New Event')
+        add_result(archer_id=archer_id, event_id=ev1, date='2023-06-01',
+                   distance='18 m', category='C1', score=500)
+        add_result(archer_id=archer_id, event_id=ev2, date='2025-01-15',
+                   distance='18 m', category='C1', score=560)
+
+        results = get_archer_results(archer_id, date_from='2024-01-01')
+        assert len(results) == 1
+        assert results[0]['date'] == '2025-01-15'
+
+    def test_get_archer_results_filter_by_date_to(self, tmp_db):
+        archer_id = add_archer('DateArcher2')
+        ev1 = add_event('D3', 'Old')
+        ev2 = add_event('D4', 'New')
+        add_result(archer_id=archer_id, event_id=ev1, date='2023-06-01',
+                   distance='18 m', category='C1', score=500)
+        add_result(archer_id=archer_id, event_id=ev2, date='2025-01-15',
+                   distance='18 m', category='C1', score=560)
+
+        results = get_archer_results(archer_id, date_to='2023-12-31')
+        assert len(results) == 1
+        assert results[0]['date'] == '2023-06-01'
+
+    def test_get_archer_results_filter_by_date_range(self, tmp_db):
+        archer_id = add_archer('RangeArcher')
+        for i, (eid, date, score) in enumerate([
+            ('R1', '2022-03-01', 490),
+            ('R2', '2023-08-15', 510),
+            ('R3', '2024-02-20', 530),
+            ('R4', '2025-11-01', 550),
+        ]):
+            ev = add_event(eid, f'Event {i}')
+            add_result(archer_id=archer_id, event_id=ev, date=date,
+                       distance='18 m', category='C1', score=score)
+
+        results = get_archer_results(archer_id, date_from='2023-01-01', date_to='2024-12-31')
+        assert len(results) == 2
+        dates = {r['date'] for r in results}
+        assert dates == {'2023-08-15', '2024-02-20'}
+
+    def test_get_all_results_date_filter(self, tmp_db):
+        archer_id = add_archer('AllArcher')
+        ev1 = add_event('ALL1', 'E1')
+        ev2 = add_event('ALL2', 'E2')
+        add_result(archer_id=archer_id, event_id=ev1, date='2022-01-01',
+                   distance='18 m', category='C1', score=500)
+        add_result(archer_id=archer_id, event_id=ev2, date='2025-01-01',
+                   distance='18 m', category='C1', score=560)
+
+        results = get_all_results(date_from='2024-01-01')
+        assert len(results) == 1
+        assert results[0]['score'] == 560
+
+    def test_get_all_results_score_per_60(self, tmp_db):
+        archer_id = add_archer('AllArcher2')
+        ev = add_event('ALL3', 'E')
+        add_result(archer_id=archer_id, event_id=ev, date='2025-01-01',
+                   distance='18 m', category='C1', score=555)
+        results = get_all_results()
+        assert 'score_per_60' in results[0]
 
     def test_get_all_results(self, tmp_db):
         archer_id = add_archer('Archer')
@@ -219,6 +331,19 @@ class TestArcherYearlyStats:
         rows = get_archer_yearly_stats(archer_id, category='C1')
         assert len(rows) == 1
         assert rows[0]['best_score'] == 500
+
+    def test_filter_by_date_from(self, tmp_db):
+        archer_id = self._setup(tmp_db)
+        rows = get_archer_yearly_stats(archer_id, date_from='2025-01-01')
+        assert len(rows) == 1
+        assert rows[0]['year'] == '2025'
+
+    def test_filter_by_date_range(self, tmp_db):
+        archer_id = self._setup(tmp_db)
+        rows = get_archer_yearly_stats(archer_id, date_from='2024-01-01', date_to='2024-12-31')
+        assert len(rows) == 1
+        assert rows[0]['year'] == '2024'
+        assert rows[0]['competitions'] == 2
 
     def test_empty_for_unknown_archer(self, tmp_db):
         rows = get_archer_yearly_stats(9999)

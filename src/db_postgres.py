@@ -15,6 +15,26 @@ import psycopg2
 import psycopg2.pool
 import psycopg2.extras
 
+ARROWS_BY_DISTANCE: dict = {
+    '18 m':       60,
+    '25 m':       60,
+    '720-runde':  72,
+    '720 runde':  72,
+    '1440-runde': 144,
+    '1440 runde': 144,
+    '900':        90,
+    '900-runde':  90,
+    '50 m':       72,
+    '70 m':       72,
+    '60 m':       72,
+    '90 m':       36,
+}
+
+
+def score_per_60(score: int, distance: str) -> float:
+    arrows = ARROWS_BY_DISTANCE.get(distance, 60)
+    return round(score / arrows * 60, 1)
+
 _DATABASE_URL = os.environ.get('DATABASE_URL', '')
 _pool: Optional[psycopg2.pool.SimpleConnectionPool] = None
 
@@ -224,7 +244,9 @@ def get_all_archers() -> List[Dict[str, Any]]:
 
 
 def get_archer_results(archer_id: int, category: Optional[str] = None,
-                       distance: Optional[str] = None) -> List[Dict[str, Any]]:
+                       distance: Optional[str] = None,
+                       date_from: Optional[str] = None,
+                       date_to: Optional[str] = None) -> List[Dict[str, Any]]:
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -242,15 +264,26 @@ def get_archer_results(archer_id: int, category: Optional[str] = None,
         if distance:
             query += ' AND r.distance = %s'
             params.append(distance)
+        if date_from:
+            query += ' AND r.date >= %s'
+            params.append(date_from)
+        if date_to:
+            query += ' AND r.date <= %s'
+            params.append(date_to)
         query += ' ORDER BY r.date DESC'
         cur.execute(query, params)
-        return _rows_to_dicts(cur)
+        rows = _rows_to_dicts(cur)
+        for r in rows:
+            r['score_per_60'] = score_per_60(r['score'], r['distance'])
+        return rows
     finally:
         _release(conn)
 
 
 def get_all_results(category: Optional[str] = None,
-                    distance: Optional[str] = None) -> List[Dict[str, Any]]:
+                    distance: Optional[str] = None,
+                    date_from: Optional[str] = None,
+                    date_to: Optional[str] = None) -> List[Dict[str, Any]]:
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -268,9 +301,18 @@ def get_all_results(category: Optional[str] = None,
         if distance:
             query += ' AND r.distance = %s'
             params.append(distance)
+        if date_from:
+            query += ' AND r.date >= %s'
+            params.append(date_from)
+        if date_to:
+            query += ' AND r.date <= %s'
+            params.append(date_to)
         query += ' ORDER BY r.date DESC'
         cur.execute(query, params)
-        return _rows_to_dicts(cur)
+        rows = _rows_to_dicts(cur)
+        for r in rows:
+            r['score_per_60'] = score_per_60(r['score'], r['distance'])
+        return rows
     finally:
         _release(conn)
 
@@ -324,7 +366,9 @@ def get_archer_stats(archer_id: int) -> Dict[str, Any]:
 
 
 def get_archer_yearly_stats(archer_id: int, category: Optional[str] = None,
-                             distance: Optional[str] = None) -> List[Dict[str, Any]]:
+                             distance: Optional[str] = None,
+                             date_from: Optional[str] = None,
+                             date_to: Optional[str] = None) -> List[Dict[str, Any]]:
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -345,6 +389,12 @@ def get_archer_yearly_stats(archer_id: int, category: Optional[str] = None,
         if distance:
             query += ' AND distance = %s'
             params.append(distance)
+        if date_from:
+            query += ' AND date >= %s'
+            params.append(date_from)
+        if date_to:
+            query += ' AND date <= %s'
+            params.append(date_to)
         query += ' GROUP BY EXTRACT(YEAR FROM date::date) ORDER BY year ASC'
         cur.execute(query, params)
         return _rows_to_dicts(cur)
