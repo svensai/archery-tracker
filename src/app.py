@@ -7,6 +7,7 @@ import sys
 import threading
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -26,6 +27,14 @@ app = Flask(__name__,
             template_folder='../templates',
             static_folder='../static')
 CORS(app)
+
+# Swagger UI at /api/docs
+swaggerui_blueprint = get_swaggerui_blueprint(
+    '/api/docs',
+    '/static/openapi.yaml',
+    config={'app_name': 'Archery Results Tracker API'},
+)
+app.register_blueprint(swaggerui_blueprint)
 
 # Initialize database on startup
 init_database()

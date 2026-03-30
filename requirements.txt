@@ -6,6 +6,7 @@ lxml>=5.0.0
 # Web server
 flask>=3.0.0
 flask-cors>=4.0.0
+flask-swagger-ui>=4.11
 
 # Database
 # SQLite is built into Python
