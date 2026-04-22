@@ -1,193 +1,226 @@
 # 🏹 Archery Results Tracker
 
-A web application to crawl, store, and visualize archery competition results from databases without APIs.
+Webapplikasjon for å importere, lagre og visualisere resultater fra bueskytingskonkurranser.
 
-## Features
+---
 
-- **Web Scraper**: Parse HTML from archery result websites
-- **SQLite Database**: Store results locally for fast access
-- **Interactive Dashboard**: Visualize scores over time with Chart.js
-- **Filter & Compare**: Filter by category, distance, and compare archers
-- **Statistics**: View averages, best scores, and placement history
+## Funksjoner
 
-## Installation (macOS)
+**Brukerhåndtering**
+- Registrering med e-postverifisering (lenke sendes via e-post, eller skrives til konsoll i dev-modus)
+- Innlogging med persistent sesjon
+- Glemt passord — tilbakestillingslenke gyldig i 1 time
+- Favorittgrupper: lag navngitte grupper av skyttere for rask sammenligning
+- Admin-panel: se alle brukere, slett brukere
+- Standard admin-bruker opprettes automatisk: `admin@archery.local` / `Admin123!`
 
-### Prerequisites
+**Resultater og visualisering**
+- Importer resultater fra HTML-filer (drag & drop eller filvelger)
+- Sammenlign opptil alle skyttere i samme tidsserie-graf
+- Årsgjennomsnitt per skytter med beste score og antall konkurranser
+- Score normalisert til 60-piler-basis (`score_per_60`) for rettferdig sammenligning på tvers av distanser
+- Konkurranseoversikt: bla gjennom alle stevner, klikk for full resultatliste
+- Filtrering på klasse, distanse og datoperiode
 
-- Python 3.8+ (ofte forhåndsinstallert på Mac, eller installer via Homebrew)
-- pip
+**Teknisk**
+- SQLite som standard (ingen konfig nødvendig), PostgreSQL valgfritt via `DATABASE_URL`
+- Database-backup og gjenoppretting via API
+- Automatisk synkronisering av resultater fra ekstern kilde (bakgrunnsjobb)
+- Swagger UI på `/api/docs`
+- 130 automatiserte tester
 
-For å sjekke om Python er installert:
+---
+
+## Hurtigstart med Docker (anbefalt)
+
+Krever [Docker](https://www.docker.com/) eller [Colima](https://github.com/abiosoft/colima).
+
 ```bash
-python3 --version
+# 1. Klon / naviger til prosjektmappen
+cd archery-tracker
+
+# 2. Kopier konfigurasjonsfil og tilpass om ønskelig
+cp .env.example .env
+
+# 3. Start (bygger image første gang, ca. 1–2 min)
+docker compose up -d
+
+# App tilgjengelig på http://localhost
 ```
 
-Hvis Python ikke er installert, installer via Homebrew:
+**Med Colima** må Docker-socketen peke riktig. Legg dette i `~/.zshrc` én gang:
 ```bash
-brew install python3
+export DOCKER_HOST=unix:///Users/<ditt-brukernavn>/.colima/default/docker.sock
 ```
 
-### Setup
+**Med PostgreSQL** (valgfritt):
+```bash
+# Legg til i .env:
+# DATABASE_URL=postgresql://archery:archery@db:5432/archery
+# POSTGRES_PASSWORD=ditt-passord
 
-1. **Klon eller naviger til prosjektmappen**:
-   ```bash
-   cd ~/Desktop/archery-tracker
-   ```
+docker compose --profile postgres up -d
+```
 
-2. **Opprett et virtuelt miljø** (anbefalt):
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-   
-   > 💡 Når det virtuelle miljøet er aktivert, vil du se `(venv)` i terminalen.
+**Nyttige kommandoer:**
+```bash
+docker compose logs -f web        # følg app-logger
+docker compose down               # stopp alt
+docker compose down -v            # stopp + slett volumer (sletter DB!)
+docker compose build --no-cache   # rebuild etter kodeendringer
+```
 
-3. **Installer avhengigheter**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+---
 
-4. **Initialiser databasen**:
-   ```bash
-   python -m src.database
-   ```
+## Lokal utvikling (uten Docker)
 
-## Bruk
-
-### Starte webserveren
+### Krav
+- Python 3.8+
 
 ```bash
+# Opprett virtuelt miljø
+python3 -m venv venv
+source venv/bin/activate
+
+# Installer avhengigheter
+pip install -r requirements.txt
+
+# Start serveren
 python -m src.app
 ```
 
-Åpne deretter nettleseren på: **http://localhost:5000**
+Åpne **http://localhost:5001**
 
-Eller åpne automatisk med:
+### Miljøvariabler
+
+Kopier `.env.example` til `.env` og tilpass:
+
+| Variabel | Standardverdi | Beskrivelse |
+|---|---|---|
+| `SECRET_KEY` | *(usikker dev-nøkkel)* | Flask session-nøkkel — **endre i produksjon** |
+| `DATABASE_URL` | *(tom = SQLite)* | PostgreSQL connection string |
+| `MAIL_SERVER` | *(tom = console)* | SMTP-server for e-postverifisering |
+| `MAIL_PORT` | `587` | SMTP-port |
+| `MAIL_USERNAME` | | SMTP brukernavn |
+| `MAIL_PASSWORD` | | SMTP passord |
+| `MAIL_DEFAULT_SENDER` | `noreply@archery.local` | Avsenderadresse |
+| `BASE_URL` | `http://localhost:5001` | Brukes i e-postlenker |
+| `HTTPS` | `false` | Sett `true` for å aktivere Secure-flagg på cookies |
+| `DEBUG` | `false` | Flask debug-modus — aldri `true` i produksjon |
+
+> Når `MAIL_SERVER` ikke er satt skrives verifiserings- og passord-reset-lenker til terminalen.
+
+---
+
+## Kjøre tester
+
 ```bash
-open http://localhost:5000
+python -m pytest tests/ -q
 ```
 
-### Importing Results
+130 tester dekker database-logikk, API-endepunkter, autentisering, grupper og admin.
 
-1. **Via Web Interface**:
-   - Enter the archer's name
-   - Upload an HTML file containing their results
-   - Click "Import Results"
+---
 
-2. **Via API**:
-   ```bash
-   curl -X POST http://localhost:5000/api/import \
-     -H "Content-Type: application/json" \
-     -d '{
-       "archer_name": "John Doe",
-       "html_file": "/path/to/results.html"
-     }'
-   ```
-
-3. **Via Python**:
-   ```python
-   from src.scraper import parse_html_file
-   from src.database import add_archer, add_event, add_result
-
-   results = parse_html_file('results.html')
-   archer_id = add_archer('John Doe')
-   
-   for r in results:
-       event_id = add_event(r['event_id'], r['event_name'])
-       add_result(archer_id, event_id, r['date'], r['distance'], 
-                  r['category'], r['score'], r['placement'])
-   ```
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/archers` | GET | List all archers |
-| `/api/archers` | POST | Add new archer |
-| `/api/archers/<id>/results` | GET | Get archer's results |
-| `/api/archers/<id>/stats` | GET | Get archer's statistics |
-| `/api/results` | GET | Get all results (with filters) |
-| `/api/categories` | GET | List all categories |
-| `/api/distances` | GET | List all distances |
-| `/api/import` | POST | Import results from HTML |
-| `/api/import/file` | POST | Import from uploaded file |
-| `/api/chart/scores/<id>` | GET | Get chart data for archer |
-| `/api/chart/compare` | GET | Compare multiple archers |
-
-### Query Parameters
-
-Most endpoints support filtering:
-- `category`: Filter by category code (e.g., `C1`, `R1`)
-- `distance`: Filter by distance (e.g., `18 m`, `720-runde`)
-
-## Data Structure
-
-### HTML Format (Input)
-
-The scraper expects HTML with this structure:
-```html
-<div class="fRow datarows" onclick="location.href='/Event/Result/2025230'" title="Event Name">
-    <div class="flexDate">
-        <span>05 des. 25</span>
-        <span class="hidden">2025</span>
-    </div>
-    <div class="flexSubRows">
-        <div class="flexSubRowItem">Event Name</div>
-        <div class="flexSubRowItem">
-            <div class="flexItems">18 m</div>      <!-- Distance -->
-            <div class="flexItems">C1</div>        <!-- Category -->
-            <div class="flexItemsInfo">567</div>   <!-- Score -->
-            <div class="flexItemsInfo">1</div>     <!-- Placement -->
-        </div>
-    </div>
-</div>
-```
-
-### Database Schema
-
-- **archers**: id, name, profile_url, timestamps
-- **events**: id, event_id, name, event_url, timestamp
-- **results**: id, archer_id, event_id, date, distance, category, score, placement
-
-## Category Codes
-
-| Code | Description |
-|------|-------------|
-| C1 | Compound Men |
-| C2 | Compound Women |
-| CH | Compound Men Senior |
-| R1 | Recurve Men |
-| R2 | Recurve Women |
-| RH | Recurve Men Senior |
-| RH5 | Recurve Men 50+ |
-| R40 | Recurve Men 40+ |
-
-## Project Structure
+## Prosjektstruktur
 
 ```
 archery-tracker/
-├── data/               # SQLite database
-│   └── archery.db
 ├── src/
-│   ├── __init__.py
-│   ├── app.py          # Flask web server
-│   ├── database.py     # Database operations
-│   └── scraper.py      # HTML parser
-├── static/             # Static files (CSS, JS)
+│   ├── app.py              # Flask-applikasjon, alle API-ruter
+│   ├── database.py         # SQLite-operasjoner (resultater, skyttere, stevner)
+│   ├── auth_db.py          # Brukere, grupper, passord-reset
+│   ├── auth.py             # Flask-Login User-klasse, e-postutsending
+│   ├── scraper.py          # HTML-parser for resultatsider
+│   ├── backup.py           # Database-backup og gjenoppretting
+│   ├── db_postgres.py      # PostgreSQL-implementasjon (aktiveres via DATABASE_URL)
+│   └── migrate_to_postgres.py  # Migreringsskript SQLite → PostgreSQL
 ├── templates/
-│   └── index.html      # Main dashboard
+│   └── index.html          # Enkeltside-dashboard (Chart.js, vanilla JS)
+├── static/
+│   └── openapi.yaml        # OpenAPI 3.0 spec (Swagger UI på /api/docs)
+├── nginx/
+│   └── nginx.conf          # Nginx-konfig: serverer /static/ direkte, proxy til gunicorn
+├── tests/
+│   ├── conftest.py         # Pytest fixtures
+│   ├── test_database.py    # Database-logikk og score-normalisering
+│   ├── test_app.py         # API-endepunkter, filtrering, backup
+│   └── test_auth.py        # Autentisering, grupper, admin
+├── data/                   # SQLite-database og backups (ikke i git)
+├── Dockerfile              # Python 3.11-slim + gunicorn
+├── docker-compose.yml      # web (gunicorn) + nginx + valgfri postgres
+├── .env.example            # Mal for miljøvariabler
 ├── requirements.txt
 └── README.md
 ```
 
-## Future Enhancements
+---
 
-- [ ] Automatic web scraping with scheduling
-- [ ] Multi-archer comparison charts
-- [ ] Export to CSV/Excel
-- [ ] Personal records tracking
-- [ ] Score progression predictions
+## API
 
-## License
+Fullstendig API-dokumentasjon er tilgjengelig via Swagger UI når appen kjører:
 
-MIT License
+**http://localhost/api/docs**
+
+### Oversikt over endepunkter
+
+| Gruppe | Endepunkt | Beskrivelse |
+|---|---|---|
+| Auth | `POST /api/auth/register` | Registrer bruker |
+| Auth | `POST /api/auth/login` | Logg inn |
+| Auth | `POST /api/auth/logout` | Logg ut |
+| Auth | `GET /api/auth/me` | Innlogget bruker |
+| Auth | `POST /api/auth/forgot-password` | Be om passord-reset |
+| Auth | `POST /api/auth/reset-password` | Sett nytt passord |
+| Auth | `GET /api/auth/verify/<token>` | Bekreft e-post |
+| Archers | `GET /api/archers` | Liste alle skyttere |
+| Archers | `POST /api/archers` | Legg til skytter |
+| Archers | `GET /api/archers/<id>/results` | Resultater for skytter |
+| Archers | `GET /api/archers/<id>/stats` | Statistikk for skytter |
+| Results | `GET /api/results` | Alle resultater (med filter) |
+| Results | `GET /api/categories` | Alle klasser |
+| Results | `GET /api/distances` | Alle distanser |
+| Events | `GET /api/events` | Stevneoversikt |
+| Events | `GET /api/events/<id>/results` | Resultater for et stevne |
+| Charts | `GET /api/chart/scores/<id>` | Tidsserie for én skytter |
+| Charts | `GET /api/chart/compare` | Sammenlign flere skyttere |
+| Charts | `GET /api/chart/yearly/<id>` | Årsgjennomsnitt |
+| Charts | `GET /api/chart/yearly/compare` | Sammenlign årsgjennomsnitt |
+| Groups | `GET/POST /api/groups` | Favorittgrupper |
+| Groups | `DELETE /api/groups/<id>` | Slett gruppe |
+| Groups | `GET/POST /api/groups/<id>/archers` | Skyttere i gruppe |
+| Import | `POST /api/import` | Importer fra HTML-streng |
+| Import | `POST /api/import/file` | Importer fra opplastet fil |
+| Backup | `POST /api/backup` | Opprett backup |
+| Backup | `GET /api/backup/list` | Liste backups |
+| Backup | `POST /api/backup/restore` | Gjenopprett backup |
+| Sync | `GET /api/sync/status` | Synkroniseringsstatus |
+| Sync | `POST /api/sync/start` | Start synkronisering |
+| Sync | `POST /api/sync/stop` | Stopp synkronisering |
+| Admin | `GET /api/admin/users` | Alle brukere (kun admin) |
+| Admin | `DELETE /api/admin/users/<id>` | Slett bruker (kun admin) |
+
+Alle endepunkter unntatt auth krever innlogging.
+
+---
+
+## Sikkerhet
+
+- Rate limiting på innlogging (20/min), registrering (10/time) og passord-reset (5/time)
+- Verifiseringstoken utløper etter 24 timer, passord-reset-token etter 1 time
+- Session-cookies med `HttpOnly` og `SameSite=Lax`; `Secure`-flagg aktiveres via `HTTPS=true`
+- Passord hashes med bcrypt
+
+---
+
+## Kjente begrensninger / fremtidige forbedringer
+
+- Ingen Alembic-migrasjoner — skjemaendringer håndteres med `ALTER TABLE` i oppstartskoden
+- Synkroniseringsmodulen (`src/sync/`) er ikke aktivert som standard
+- Eksport til CSV/Excel ikke implementert
+
+---
+
+## Lisens
+
+MIT

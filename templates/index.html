@@ -7,6 +7,31 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
+        :root {
+            --blue-600: #2563eb;
+            --blue-700: #1d4ed8;
+            --blue-50: #eff6ff;
+            --blue-100: #dbeafe;
+            --blue-200: #bfdbfe;
+            --blue-300: #93c5fd;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+            --white: #ffffff;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.05);
+            --shadow-md: 0 10px 25px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,182 +40,155 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: var(--slate-50);
             min-height: 100vh;
-            color: #e0e0e0;
+            color: var(--slate-900);
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 24px 20px;
         }
 
         header {
             text-align: center;
-            padding: 30px 0;
-            margin-bottom: 30px;
+            padding: 28px 0;
+            margin-bottom: 24px;
         }
 
         header h1 {
-            font-size: 2.5rem;
-            color: #00d4ff;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--blue-600);
+            letter-spacing: -0.5px;
         }
 
         header p {
-            color: #888;
-            margin-top: 10px;
+            color: var(--slate-500);
+            margin-top: 6px;
+            font-size: 0.95rem;
         }
 
         .grid {
             display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 20px;
+            grid-template-columns: 340px 1fr;
+            gap: 18px;
         }
 
         @media (max-width: 900px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-
-            header h1 { font-size: 1.6rem; }
-
+            .grid { grid-template-columns: 1fr; }
+            header h1 { font-size: 1.5rem; }
             .chart-container { height: 280px; }
-
             .stat-card .value { font-size: 1.4rem; }
-
             .filters .date-range { flex-direction: column; gap: 6px; }
-
-            .results-table th,
-            .results-table td { padding: 8px 6px; font-size: 13px; }
+            .results-table th, .results-table td { padding: 8px 6px; font-size: 13px; }
         }
 
         @media (max-width: 600px) {
             .container { padding: 10px; }
-
-            header { padding: 16px 0; margin-bottom: 16px; }
-            header h1 { font-size: 1.3rem; }
-
+            header { padding: 14px 0; margin-bottom: 14px; }
+            header h1 { font-size: 1.2rem; }
             .card { padding: 14px; border-radius: 10px; }
-
             .chart-container { height: 240px; padding: 10px; }
-
             .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-
             .stat-card { padding: 10px; }
             .stat-card .value { font-size: 1.2rem; }
-
-            /* Stack chart toggles */
             .chart-toggle { flex-wrap: wrap; gap: 4px; }
             .btn-toggle { font-size: 12px; padding: 5px 10px; }
-
-            /* Hide Per-60 and Event columns on very small screens */
             .results-table th:nth-child(2),
             .results-table td:nth-child(2),
             .results-table th:nth-child(6),
             .results-table td:nth-child(6) { display: none; }
-
-            .filters select,
-            .filters input[type="date"] { min-width: 0; }
+            .filters select, .filters input[type="date"] { min-width: 0; }
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
+            background: var(--white);
+            border-radius: var(--radius);
             padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--shadow-sm);
         }
 
         .card h2 {
-            color: #00d4ff;
-            margin-bottom: 15px;
-            font-size: 1.2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--slate-700);
+            margin-bottom: 14px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--slate-100);
             padding-bottom: 10px;
         }
 
         .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
         }
 
         .main-content {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
         }
 
-        /* Import Section */
-        .import-section input[type="text"],
-        .import-section select {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            color: #e0e0e0;
-            font-size: 14px;
+        /* Topp N */
+        .topp-n-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
         }
-
-        .import-section input[type="file"] {
-            display: none;
+        .topp-n-row select,
+        .topp-n-row input[type="date"] {
+            flex: 1 1 90px;
+            min-width: 80px;
+            padding: 8px 10px;
+            border: 1px solid var(--slate-200);
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            color: var(--slate-900);
+            font-size: 13px;
         }
-
-        .file-label {
-            display: block;
-            padding: 12px;
-            background: rgba(0, 212, 255, 0.1);
-            border: 2px dashed rgba(0, 212, 255, 0.3);
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 10px;
-            transition: all 0.3s;
-        }
-
-        .file-label:hover {
-            background: rgba(0, 212, 255, 0.2);
-            border-color: rgba(0, 212, 255, 0.5);
-        }
-
-        .file-label.has-file {
-            background: rgba(0, 255, 100, 0.1);
-            border-color: rgba(0, 255, 100, 0.3);
+        .topp-n-row select:focus,
+        .topp-n-row input[type="date"]:focus {
+            outline: none;
+            border-color: var(--blue-600);
+            box-shadow: 0 0 0 3px var(--blue-100);
         }
 
         .btn {
-            padding: 12px 20px;
+            padding: 10px 18px;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            transition: all 0.3s;
+            transition: all 0.2s;
             width: 100%;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-            color: #000;
+            background: var(--blue-600);
+            color: var(--white);
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+            background: var(--blue-700);
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transform: translateY(-1px);
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: #e0e0e0;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: var(--white);
+            color: var(--slate-700);
+            border: 1px solid var(--slate-200);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: var(--slate-100);
         }
 
         /* Archer List */
@@ -201,30 +199,32 @@
         }
 
         .archer-list li {
-            padding: 12px;
-            margin-bottom: 8px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            background: var(--slate-50);
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.15s;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border: 1px solid transparent;
         }
 
         .archer-list li:hover {
-            background: rgba(0, 212, 255, 0.1);
-            transform: translateX(5px);
+            background: var(--blue-50);
+            border-color: var(--blue-100);
         }
 
         .archer-list li.selected {
-            background: rgba(0, 212, 255, 0.2);
-            border-left: 3px solid #00d4ff;
+            background: var(--blue-50);
+            border-left: 3px solid var(--blue-600);
+            border-color: var(--blue-200);
         }
 
         .archer-list li input[type="checkbox"] {
             margin-right: 10px;
-            accent-color: #00d4ff;
+            accent-color: var(--blue-600);
             width: 16px;
             height: 16px;
             cursor: pointer;
@@ -233,7 +233,7 @@
 
         .archer-hint {
             font-size: 0.78rem;
-            color: #555;
+            color: var(--slate-400);
             margin-top: 8px;
             text-align: center;
         }
@@ -249,13 +249,20 @@
         .filters input[type="date"] {
             flex: 1;
             min-width: 120px;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            color: #e0e0e0;
+            padding: 9px 10px;
+            border: 1px solid var(--slate-200);
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            color: var(--slate-900);
             font-size: 14px;
-            color-scheme: dark;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .filters select:focus,
+        .filters input[type="date"]:focus {
+            outline: none;
+            border-color: var(--blue-600);
+            box-shadow: 0 0 0 3px var(--blue-100);
         }
 
         .filters .date-range {
@@ -266,9 +273,10 @@
 
         .filters .date-range label {
             font-size: 11px;
-            color: #666;
+            color: var(--slate-500);
             display: block;
             margin-bottom: 3px;
+            font-weight: 500;
         }
 
         .filters .date-range > div {
@@ -278,111 +286,124 @@
         /* Chart Container */
         .chart-container {
             position: relative;
-            height: 400px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            padding: 20px;
+            height: 380px;
+            background: var(--white);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            border: 1px solid var(--slate-100);
         }
 
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
         }
 
         .stat-card {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            padding: 15px;
+            background: var(--blue-50);
+            border-radius: var(--radius-sm);
+            padding: 16px;
             text-align: center;
+            border: 1px solid var(--blue-100);
         }
 
         .stat-card .value {
             font-size: 1.8rem;
-            font-weight: bold;
-            color: #00d4ff;
+            font-weight: 700;
+            color: var(--blue-600);
         }
 
         .stat-card .label {
-            font-size: 0.85rem;
-            color: #888;
-            margin-top: 5px;
+            font-size: 0.8rem;
+            color: var(--slate-500);
+            margin-top: 4px;
+            font-weight: 500;
         }
 
         /* Results Table */
         .results-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
+            margin-top: 12px;
         }
 
         .results-table th,
         .results-table td {
-            padding: 12px;
+            padding: 11px 12px;
             text-align: left;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid var(--slate-100);
         }
 
         .results-table th {
-            color: #00d4ff;
+            color: var(--slate-500);
             font-weight: 600;
-            background: rgba(0, 0, 0, 0.2);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--slate-50);
         }
 
-        .results-table tr:hover {
-            background: rgba(0, 212, 255, 0.05);
+        .results-table td {
+            color: var(--slate-700);
+            font-size: 14px;
+        }
+
+        .results-table tr:hover td {
+            background: var(--blue-50);
         }
 
         .placement-badge {
             display: inline-block;
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: 20px;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 700;
         }
 
-        .placement-1 { background: gold; color: #000; }
-        .placement-2 { background: silver; color: #000; }
-        .placement-3 { background: #cd7f32; color: #000; }
+        .placement-1 { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .placement-2 { background: var(--slate-100); color: var(--slate-600); border: 1px solid var(--slate-300); }
+        .placement-3 { background: #fef2e4; color: #7c2d12; border: 1px solid #fed7aa; }
 
         /* Alert */
         .alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+            font-size: 14px;
         }
 
         .alert-success {
-            background: rgba(0, 255, 100, 0.1);
-            border: 1px solid rgba(0, 255, 100, 0.3);
-            color: #00ff64;
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            color: #16a34a;
         }
 
         .alert-error {
-            background: rgba(255, 0, 0, 0.1);
-            border: 1px solid rgba(255, 0, 0, 0.3);
-            color: #ff6464;
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
         }
 
         /* Loading */
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #888;
+            padding: 32px;
+            color: var(--slate-400);
         }
 
         .loading::after {
             content: '';
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #00d4ff;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--blue-600);
             border-top-color: transparent;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
         }
 
         @keyframes spin {
@@ -390,49 +411,56 @@
         }
 
         /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0, 212, 255, 0.3);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 212, 255, 0.5);
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--slate-100); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
 
         .chart-toggle {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn-toggle {
-            padding: 7px 16px;
-            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 6px 14px;
+            border: 1px solid var(--slate-200);
             border-radius: 20px;
-            background: transparent;
-            color: #888;
+            background: var(--white);
+            color: var(--slate-500);
             cursor: pointer;
             font-size: 13px;
-            transition: all 0.2s;
+            font-weight: 500;
+            transition: all 0.15s;
         }
 
         .btn-toggle.active {
-            background: rgba(0, 212, 255, 0.2);
-            color: #00d4ff;
-            border-color: #00d4ff;
+            background: var(--blue-600);
+            color: var(--white);
+            border-color: var(--blue-600);
         }
 
         .btn-toggle:hover:not(.active) {
-            background: rgba(255, 255, 255, 0.05);
-            color: #ccc;
+            background: var(--blue-50);
+            color: var(--blue-600);
+            border-color: var(--blue-200);
+        }
+
+        /* Chart type selector */
+        .chart-type-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--slate-100);
+            flex-wrap: wrap;
+        }
+
+        .chart-type-label {
+            font-size: 12px;
+            color: var(--slate-500);
+            font-weight: 500;
+            margin-right: 2px;
         }
 
         /* Archer search */
@@ -440,18 +468,20 @@
             width: 100%;
             padding: 9px 12px;
             margin-bottom: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            color: #e0e0e0;
+            border: 1px solid var(--slate-200);
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            color: var(--slate-900);
             font-size: 13px;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
 
-        .archer-search::placeholder { color: #555; }
+        .archer-search::placeholder { color: var(--slate-400); }
 
         .archer-search:focus {
             outline: none;
-            border-color: rgba(0, 212, 255, 0.4);
+            border-color: var(--blue-600);
+            box-shadow: 0 0 0 3px var(--blue-100);
         }
 
         .archer-list li.hidden { display: none; }
@@ -459,22 +489,23 @@
         /* Competitions browser */
         .competitions-list {
             list-style: none;
-            max-height: 340px;
+            max-height: 320px;
             overflow-y: auto;
         }
 
         .comp-item {
             padding: 10px 12px;
-            margin-bottom: 6px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
+            margin-bottom: 5px;
+            background: var(--slate-50);
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
+            border: 1px solid transparent;
             border-left: 3px solid transparent;
         }
 
-        .comp-item:hover { background: rgba(0,212,255,0.08); border-left-color: rgba(0,212,255,0.4); }
-        .comp-item.active { background: rgba(0,212,255,0.13); border-left-color: #00d4ff; }
+        .comp-item:hover { background: var(--blue-50); border-color: var(--blue-100); border-left-color: var(--blue-300); }
+        .comp-item.active { background: var(--blue-50); border-color: var(--blue-200); border-left-color: var(--blue-600); }
 
         .comp-item .comp-header {
             display: flex;
@@ -486,38 +517,42 @@
         .comp-item .comp-name {
             font-size: 13px;
             font-weight: 600;
-            color: #e0e0e0;
+            color: var(--slate-800);
             flex: 1;
         }
 
         .comp-item .comp-date {
             font-size: 11px;
-            color: #888;
+            color: var(--slate-400);
             white-space: nowrap;
         }
 
         .comp-item .comp-meta {
             margin-top: 4px;
             font-size: 11px;
-            color: #666;
+            color: var(--slate-400);
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
 
-        .comp-item .comp-meta span { color: #888; }
-        .comp-item .comp-meta strong { color: #aaa; }
+        .comp-item .comp-meta span { color: var(--slate-400); }
+        .comp-item .comp-meta strong { color: var(--slate-600); }
 
         /* Event detail panel */
         #event-detail-panel {
-            margin-top: 8px;
+            margin-top: 10px;
             display: none;
+            background: var(--slate-50);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            border: 1px solid var(--slate-200);
         }
 
         #event-detail-panel .event-title {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 600;
-            color: #00d4ff;
+            color: var(--blue-600);
             margin-bottom: 10px;
         }
 
@@ -528,62 +563,286 @@
         }
 
         .event-results-table th {
-            color: #00d4ff;
+            color: var(--slate-500);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
             text-align: left;
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--slate-200);
+            background: var(--white);
         }
 
         .event-results-table td {
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--slate-100);
+            color: var(--slate-700);
         }
 
-        .event-results-table tr:hover td { background: rgba(0,212,255,0.05); }
+        .event-results-table tr:hover td { background: var(--blue-50); }
 
         .event-results-table tr.highlight-archer td {
-            background: rgba(0,212,255,0.1);
+            background: var(--blue-50);
             font-weight: 600;
+            color: var(--blue-700);
         }
+
+        /* ── Auth overlay ── */
+        #auth-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .auth-card {
+            background: var(--white);
+            border: 1px solid var(--slate-200);
+            border-radius: 16px;
+            padding: 36px 32px;
+            width: 100%; max-width: 400px;
+            box-shadow: var(--shadow-md);
+        }
+        .auth-card-title {
+            color: var(--blue-600);
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        .auth-tabs { display:flex; gap:8px; margin-bottom:24px; }
+        .auth-tab { flex:1; padding:9px; border:1px solid var(--slate-200);
+                    border-radius:var(--radius-sm); background:var(--white); color:var(--slate-500);
+                    cursor:pointer; font-size:14px; font-weight:600; transition:all 0.15s; }
+        .auth-tab.active { background:var(--blue-600); color:var(--white); border-color:var(--blue-600); }
+        .auth-input { width:100%; padding:11px 14px; margin-bottom:12px;
+                      border:1px solid var(--slate-200); border-radius:var(--radius-sm);
+                      background:var(--white); color:var(--slate-900); font-size:14px;
+                      transition: border-color 0.15s, box-shadow 0.15s; }
+        .auth-input:focus { outline:none; border-color:var(--blue-600); box-shadow: 0 0 0 3px var(--blue-100); }
+        .auth-error { color:#dc2626; font-size:13px; margin-bottom:10px; min-height:18px; }
+        .auth-success { color:#16a34a; font-size:13px; margin-bottom:10px; }
+        .auth-hint { font-size:12px; color:var(--slate-500); margin-top:12px; text-align:center; }
+        .auth-hint a { color:var(--blue-600); cursor:pointer; text-decoration:none; }
+        .auth-hint a:hover { text-decoration: underline; }
+
+        /* ── Top navigation bar ── */
+        #top-nav {
+            background: var(--white);
+            border-bottom: 1px solid var(--slate-200);
+            padding: 10px 24px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        #top-nav .nav-left { color: var(--blue-600); font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
+        #top-nav .nav-right { display:flex; align-items:center; gap:14px; }
+        #top-nav .nav-user { color: var(--slate-500); }
+        #top-nav .nav-user strong { color: var(--slate-900); }
+        .nav-link { color:var(--blue-600); cursor:pointer; background:none; border:none;
+                    font-size:13px; padding:0; text-decoration:none; }
+        .nav-link:hover { text-decoration:underline; }
+        .btn-logout { padding:6px 14px; font-size:13px; width:auto; }
+
+        /* ── Favourite Groups card ── */
+        .group-item {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:9px 12px; margin-bottom:5px;
+            background:var(--slate-50); border-radius:var(--radius-sm);
+            cursor:pointer; transition:all 0.15s;
+            border:1px solid transparent;
+            border-left:3px solid transparent;
+        }
+        .group-item:hover { background:var(--blue-50); border-color:var(--blue-100); }
+        .group-item.active { background:var(--blue-50); border-left-color:var(--blue-600); border-color:var(--blue-200); }
+        .group-item .group-name { flex:1; font-size:13px; color:var(--slate-700); }
+        .group-item .group-count { font-size:11px; color:var(--slate-400); margin-right:8px; }
+        .group-item .group-actions { display:flex; gap:6px; }
+        .group-btn { background:none; border:none; cursor:pointer; font-size:13px;
+                     color:var(--slate-400); padding:2px 4px; border-radius:4px; transition:color 0.15s; }
+        .group-btn:hover { color:#dc2626; }
+        .new-group-form { display:flex; gap:6px; margin-top:10px; }
+        .new-group-input { flex:1; padding:8px 10px; border:1px solid var(--slate-200);
+                           border-radius:var(--radius-sm); background:var(--white); color:var(--slate-900);
+                           font-size:13px; transition: border-color 0.15s, box-shadow 0.15s; }
+        .new-group-input:focus { outline:none; border-color:var(--blue-600); box-shadow: 0 0 0 3px var(--blue-100); }
+
+        /* ── Admin panel modal ── */
+        #admin-overlay {
+            position:fixed; inset:0; z-index:1001;
+            background:rgba(15,23,42,0.6); backdrop-filter:blur(6px);
+            display:none; align-items:flex-start; justify-content:center;
+            padding-top:60px; overflow-y:auto;
+        }
+        .admin-panel {
+            background:var(--white); border:1px solid var(--slate-200);
+            border-radius:var(--radius); padding:28px;
+            width:100%; max-width:800px; margin-bottom:40px;
+            box-shadow: var(--shadow-md);
+        }
+        .admin-panel h2 { color:var(--slate-900); margin-bottom:20px; }
+        .admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .admin-table th { color:var(--slate-500); font-size:11px; text-transform:uppercase;
+                          letter-spacing:0.4px; padding:10px 12px; text-align:left;
+                          border-bottom:1px solid var(--slate-200);
+                          background:var(--slate-50); }
+        .admin-table td { padding:10px 12px; border-bottom:1px solid var(--slate-100); color:var(--slate-700); }
+        .admin-table tr:hover td { background:var(--slate-50); }
+        .btn-danger { background:#fef2f2; color:#dc2626;
+                      border:1px solid #fca5a5; padding:5px 12px;
+                      border-radius:6px; cursor:pointer; font-size:12px; transition:all 0.15s; }
+        .btn-danger:hover { background:#fee2e2; }
+        .btn-danger:disabled { opacity:0.3; cursor:not-allowed; }
     </style>
 </head>
 <body>
+
+    <!-- ── Auth overlay ── -->
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2 class="auth-card-title">Archery Tracker</h2>
+            <div class="auth-tabs" id="auth-tabs-bar">
+                <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Logg inn</button>
+                <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Registrer</button>
+            </div>
+
+            <!-- Login form -->
+            <div id="form-login">
+                <div class="auth-error" id="login-error"></div>
+                <input class="auth-input" type="email" id="login-email" placeholder="E-post" autocomplete="email">
+                <input class="auth-input" type="password" id="login-password" placeholder="Passord" autocomplete="current-password"
+                       onkeydown="if(event.key==='Enter') doLogin()">
+                <button class="btn btn-primary" style="width:100%" id="btn-login" onclick="doLogin()">Logg inn</button>
+                <div style="display:flex;justify-content:space-between;margin-top:10px;">
+                    <p class="auth-hint" style="margin:0">Ingen konto? <a onclick="switchAuthTab('register')">Registrer deg</a></p>
+                    <p class="auth-hint" style="margin:0"><a onclick="switchAuthTab('forgot')">Glemt passord?</a></p>
+                </div>
+            </div>
+
+            <!-- Register form -->
+            <div id="form-register" style="display:none">
+                <div class="auth-error" id="register-error"></div>
+                <div class="auth-success" id="register-success" style="display:none"></div>
+                <input class="auth-input" type="text" id="reg-username" placeholder="Brukernavn (min 3 tegn)" autocomplete="username">
+                <input class="auth-input" type="email" id="reg-email" placeholder="E-post" autocomplete="email">
+                <input class="auth-input" type="password" id="reg-password" placeholder="Passord (min 8 tegn)" autocomplete="new-password"
+                       onkeydown="if(event.key==='Enter') doRegister()">
+                <button class="btn btn-primary" style="width:100%" id="btn-register" onclick="doRegister()">Registrer</button>
+                <div id="resend-area" style="display:none;margin-top:10px;">
+                    <button class="btn" style="width:100%;font-size:12px;" onclick="doResend()">Send bekreftelseslenke på nytt</button>
+                </div>
+                <p class="auth-hint">Har du konto? <a onclick="switchAuthTab('login')">Logg inn</a></p>
+            </div>
+
+            <!-- Forgot password form -->
+            <div id="form-forgot" style="display:none">
+                <p style="color:#aaa;font-size:13px;margin-bottom:14px;">Skriv inn e-postadressen din så sender vi en tilbakestillingslenke (gyldig 1 time).</p>
+                <div class="auth-error" id="forgot-error"></div>
+                <div class="auth-success" id="forgot-success" style="display:none"></div>
+                <input class="auth-input" type="email" id="forgot-email" placeholder="E-post" autocomplete="email"
+                       onkeydown="if(event.key==='Enter') doForgotPassword()">
+                <button class="btn btn-primary" style="width:100%" onclick="doForgotPassword()">Send tilbakestillingslenke</button>
+                <p class="auth-hint"><a onclick="switchAuthTab('login')">← Tilbake til innlogging</a></p>
+            </div>
+
+            <!-- Reset password form (shown when ?reset=TOKEN in URL) -->
+            <div id="form-reset" style="display:none">
+                <p style="color:#aaa;font-size:13px;margin-bottom:14px;">Velg et nytt passord.</p>
+                <div class="auth-error" id="reset-error"></div>
+                <div class="auth-success" id="reset-success" style="display:none"></div>
+                <input class="auth-input" type="password" id="reset-password" placeholder="Nytt passord (min 8 tegn)" autocomplete="new-password"
+                       onkeydown="if(event.key==='Enter') doResetPassword()">
+                <input class="auth-input" type="password" id="reset-password2" placeholder="Gjenta passord" autocomplete="new-password"
+                       onkeydown="if(event.key==='Enter') doResetPassword()">
+                <button class="btn btn-primary" style="width:100%" onclick="doResetPassword()">Sett nytt passord</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Top navigation bar ── -->
+    <div id="top-nav">
+        <div class="nav-left">Archery Tracker</div>
+        <div class="nav-right">
+            <span class="nav-user">Innlogget som <strong id="nav-username"></strong></span>
+            <button class="nav-link btn-logout btn" id="nav-admin-btn" style="display:none" onclick="openAdminPanel()">Admin</button>
+            <button class="btn btn-secondary btn-logout" onclick="doLogout()">Logg ut</button>
+        </div>
+    </div>
+
+    <!-- ── Admin panel modal ── -->
+    <div id="admin-overlay" onclick="if(event.target===this) closeAdminPanel()">
+        <div class="admin-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="margin:0">Admin — Brukere</h2>
+                <button class="btn btn-secondary" style="font-size:12px;" onclick="closeAdminPanel()">Lukk</button>
+            </div>
+            <div id="admin-content"><p style="color:#888">Laster…</p></div>
+        </div>
+    </div>
+
+    <!-- ── Email verified banner ── -->
+    <div id="verified-banner" style="display:none;background:#f0fdf4;border-bottom:1px solid #86efac;
+         padding:10px 20px;text-align:center;font-size:13px;color:#16a34a;font-weight:500;">
+        E-post bekreftet! Du kan nå logge inn.
+    </div>
+
     <div class="container">
         <header>
-            <h1>🏹 Archery Results Tracker</h1>
-            <p>Track and visualize archery competition scores</p>
+            <h1>Archery Tracker</h1>
+            <p>Spor og visualiser resultater fra bueskytingskonkurranser</p>
         </header>
 
         <div class="grid">
             <div class="sidebar">
-                <!-- Import Section -->
-                <div class="card import-section">
-                    <h2>📥 Import Results</h2>
-                    <div id="import-alert"></div>
-                    <input type="text" id="archer-name" placeholder="Archer Name (e.g., John Smith)">
-                    <label class="file-label" id="file-label" for="html-file">
-                        📄 Drop HTML file here or click to browse
-                    </label>
-                    <input type="file" id="html-file" accept=".html,.txt">
-                    <button class="btn btn-primary" onclick="importResults()">Import Results</button>
+                <!-- Topp N -->
+                <div class="card" id="topp-n-card">
+                    <h2>Topp N skyttere</h2>
+                    <div class="topp-n-row">
+                        <select id="topp-n-count" title="Antall skyttere">
+                            <option value="2">Topp 2</option>
+                            <option value="3">Topp 3</option>
+                            <option value="4">Topp 4</option>
+                            <option value="5" selected>Topp 5</option>
+                            <option value="6">Topp 6</option>
+                            <option value="7">Topp 7</option>
+                            <option value="8">Topp 8</option>
+                            <option value="9">Topp 9</option>
+                            <option value="10">Topp 10</option>
+                        </select>
+                        <select id="topp-n-category" title="Klasse">
+                            <option value="">Alle klasser</option>
+                        </select>
+                        <select id="topp-n-distance" title="Distanse">
+                            <option value="">Alle distanser</option>
+                        </select>
+                    </div>
+                    <div class="topp-n-row">
+                        <input type="date" id="topp-n-date-from" title="Fra dato">
+                        <input type="date" id="topp-n-date-to" title="Til dato">
+                    </div>
+                    <button class="btn btn-primary" onclick="showTopArchers()">Vis på graf</button>
                 </div>
 
                 <!-- Archers List -->
                 <div class="card">
-                    <h2>👥 Archers</h2>
+                    <h2>Skyttere</h2>
                     <input type="text" class="archer-search" id="archer-search"
                            placeholder="Search by name or ID…"
                            oninput="filterArcherList(this.value)">
                     <ul class="archer-list" id="archer-list">
                         <li class="loading">Loading archers...</li>
                     </ul>
-                    <p class="archer-hint">Select multiple to compare — or leave all unchecked to compare everyone</p>
+                    <p class="archer-hint">Velg en eller flere skyttere for å sammenligne</p>
                 </div>
 
                 <!-- Filters -->
                 <div class="card">
-                    <h2>🔍 Filters</h2>
+                    <h2>Filtre</h2>
                     <div class="filters">
                         <select id="filter-category" onchange="applyFilters()">
                             <option value="">All Categories</option>
@@ -603,12 +862,34 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Favourite Groups -->
+                <div class="card" id="groups-card">
+                    <h2>⭐ Favorittgrupper</h2>
+                    <div id="groups-list"><p style="color:#888;font-size:13px;">Ingen grupper ennå.</p></div>
+                    <!-- Group archer editor (shown when editing a group) -->
+                    <div id="group-editor" style="display:none;margin-top:10px;padding:10px;background:var(--slate-50);border-radius:8px;border:1px solid var(--slate-200);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span id="group-editor-title" style="font-size:13px;color:var(--blue-600);font-weight:600;"></span>
+                            <button class="group-btn" onclick="closeGroupEditor()" style="color:#888;">✕</button>
+                        </div>
+                        <div id="group-editor-archers" style="font-size:12px;color:var(--slate-500);margin-bottom:8px;">Ingen skyttere.</div>
+                        <button class="btn btn-primary" style="width:100%;padding:7px;font-size:12px;" onclick="addSelectedToGroup()">
+                            ＋ Legg til valgte skyttere
+                        </button>
+                    </div>
+                    <div class="new-group-form">
+                        <input class="new-group-input" id="new-group-name" placeholder="Nytt gruppenavn…"
+                               onkeydown="if(event.key==='Enter') createGroup()">
+                        <button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="createGroup()">+</button>
+                    </div>
+                </div>
             </div>
 
             <div class="main-content">
                 <!-- Stats Section -->
                 <div class="card" id="stats-section" style="display: none;">
-                    <h2>📊 Statistics</h2>
+                    <h2>Statistikk</h2>
                     <div class="stats-grid" id="stats-grid">
                         <!-- Stats will be populated here -->
                     </div>
@@ -616,23 +897,31 @@
 
                 <!-- Chart Section -->
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-                        <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">📈 Graf</h2>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--slate-100); padding-bottom:10px;">
+                        <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Graf</h2>
                         <div class="chart-toggle">
-                            <button class="btn-toggle active" id="toggle-time" onclick="setChartMode('time')">Resultat over tid</button>
+                            <button class="btn-toggle active" id="toggle-time" onclick="setChartMode('time')">Over tid</button>
                             <button class="btn-toggle" id="toggle-yearly" onclick="setChartMode('yearly')">Årsgjennomsnitt</button>
                         </div>
                     </div>
-                    <div class="chart-container">
+                    <!-- Chart type picker — shown after data loads -->
+                    <div class="chart-type-bar" id="chart-type-bar" style="display:none;">
+                        <span class="chart-type-label">Graftype:</span>
+                        <button class="btn-toggle btn-chart-type active" data-type="line" onclick="setChartType('line')">Linje</button>
+                        <button class="btn-toggle btn-chart-type" data-type="area" onclick="setChartType('area')">Areal</button>
+                        <button class="btn-toggle btn-chart-type" data-type="scatter" onclick="setChartType('scatter')">Punkt</button>
+                        <button class="btn-toggle btn-chart-type" data-type="bar" onclick="setChartType('bar')">Søyle</button>
+                    </div>
+                    <div class="chart-container" style="margin-top:12px;">
                         <canvas id="scores-chart"></canvas>
                     </div>
                 </div>
 
                 <!-- Competitions Browser -->
                 <div class="card" id="competitions-section">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px;">
-                        <h2 style="margin:0;border:none;padding:0;">🏆 Konkuranser</h2>
-                        <span id="comp-count" style="font-size:12px;color:#666;"></span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--slate-100);padding-bottom:10px;">
+                        <h2 style="margin:0;border:none;padding:0;">Konkuranser</h2>
+                        <span id="comp-count" style="font-size:12px;color:var(--slate-400);"></span>
                     </div>
                     <ul class="competitions-list" id="competitions-list">
                         <li style="color:#888;padding:8px;">Laster konkuranser…</li>
@@ -658,9 +947,32 @@
                     </div>
                 </div>
 
+                <!-- Active Archers Per Year -->
+                <div class="card" id="activity-section">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--slate-100);padding-bottom:10px;">
+                        <h2 style="margin:0;border:none;padding:0;">Aktive skyttere per år</h2>
+                        <button class="btn-toggle" id="activity-filter-toggle" onclick="toggleActivityFilter()" style="font-size:12px;">Velg klasser ▾</button>
+                    </div>
+                    <!-- Category filter panel -->
+                    <div id="activity-filter-panel" style="display:none;margin-bottom:14px;padding:12px;background:var(--slate-50,#f8fafc);border-radius:8px;border:1px solid var(--slate-100);">
+                        <div style="display:flex;gap:8px;margin-bottom:10px;">
+                            <button class="btn-secondary" style="font-size:12px;padding:4px 10px;" onclick="activitySelectAll()">Velg alle</button>
+                            <button class="btn-secondary" style="font-size:12px;padding:4px 10px;" onclick="activityClearAll()">Fjern alle</button>
+                            <input type="text" id="activity-cat-search" placeholder="Søk klasse…" oninput="filterActivityCategories()" style="flex:1;padding:4px 8px;border:1px solid var(--slate-200);border-radius:6px;font-size:12px;">
+                        </div>
+                        <div id="activity-cat-list" style="display:flex;flex-wrap:wrap;gap:6px;max-height:160px;overflow-y:auto;"></div>
+                    </div>
+                    <div id="activity-incomplete-note" style="display:none;font-size:12px;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:6px 10px;margin-bottom:10px;">
+                        ⚠ Historisk sync ikke ferdig — tallene for tidligere år er undercounts.
+                    </div>
+                    <div class="chart-container" style="margin-top:4px;">
+                        <canvas id="activity-chart"></canvas>
+                    </div>
+                </div>
+
                 <!-- Results Table -->
                 <div class="card" id="results-section">
-                    <h2>📋 Recent Results</h2>
+                    <h2>Resultater</h2>
                     <div style="overflow-x: auto;">
                         <table class="results-table" id="results-table">
                             <thead>
@@ -693,21 +1005,326 @@
         let allResults = [];
         let chartMode = 'time'; // 'time' | 'yearly'
 
-        // Colors for chart lines
+        // Colors for chart lines (clean, accessible palette)
         const chartColors = [
-            '#00d4ff', '#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0',
-            '#9966ff', '#ff9f40', '#c9cbcf', '#7cfc00', '#ff1493'
+            '#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626',
+            '#0891b2', '#db2777', '#65a30d', '#9333ea', '#0369a1'
         ];
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            initChart();
-            await loadArchers();   // populates allArchers
-            await loadFilters();
-            refreshView();         // auto-compare all on first load
-            loadCompetitions();    // populate competitions browser
+        let chartType = 'line'; // 'line' | 'area' | 'scatter' | 'bar'
 
-            // File input handler
+        function setChartType(type) {
+            chartType = type;
+            document.querySelectorAll('.btn-chart-type').forEach(b => {
+                b.classList.toggle('active', b.dataset.type === type);
+            });
+            loadCurrentChart();
+        }
+
+        function showChartTypeBar() {
+            document.getElementById('chart-type-bar').style.display = 'flex';
+        }
+
+        // Global user state
+        let currentUser = null;
+
+        // ── Auth helpers ──────────────────────────────────────────────────────
+
+        let _resetToken = null; // password-reset token from URL
+
+        function switchAuthTab(tab) {
+            ['login','register','forgot','reset'].forEach(t => {
+                document.getElementById('form-' + t).style.display = t === tab ? '' : 'none';
+            });
+            // Only show the login/register tab bar for those two tabs
+            document.getElementById('auth-tabs-bar').style.display =
+                (tab === 'login' || tab === 'register') ? 'flex' : 'none';
+            document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+            document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+        }
+
+        function _setLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.disabled = loading;
+            btn.textContent = loading ? 'Vent…' : btn.dataset.label || btn.textContent;
+            if (!loading && btn.dataset.label) btn.textContent = btn.dataset.label;
+        }
+
+        async function doLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errEl = document.getElementById('login-error');
+            errEl.textContent = '';
+            const btn = document.getElementById('btn-login');
+            btn.dataset.label = 'Logg inn';
+            _setLoading('btn-login', true);
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if (!res.ok) { errEl.textContent = data.error || 'Innlogging feilet'; return; }
+                currentUser = data.user;
+                document.getElementById('auth-overlay').style.display = 'none';
+                initApp();
+            } catch (e) { errEl.textContent = 'Nettverksfeil'; }
+            finally { _setLoading('btn-login', false); }
+        }
+
+        async function doRegister() {
+            const username = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const errEl = document.getElementById('register-error');
+            const succEl = document.getElementById('register-success');
+            errEl.textContent = ''; succEl.style.display = 'none';
+            document.getElementById('btn-register').dataset.label = 'Registrer';
+            _setLoading('btn-register', true);
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({username, email, password})
+                });
+                const data = await res.json();
+                if (!res.ok) { errEl.textContent = data.error || 'Registrering feilet'; return; }
+                succEl.textContent = data.message; succEl.style.display = '';
+                document.getElementById('resend-area').style.display = '';
+            } catch (e) { errEl.textContent = 'Nettverksfeil'; }
+            finally { _setLoading('btn-register', false); }
+        }
+
+        async function doResend() {
+            const email = document.getElementById('reg-email').value.trim();
+            await fetch('/api/auth/resend-verification', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({email})
+            });
+            document.getElementById('register-success').textContent = 'Ny bekreftelses-e-post er sendt.';
+            document.getElementById('register-success').style.display = '';
+        }
+
+        async function doForgotPassword() {
+            const email = document.getElementById('forgot-email').value.trim();
+            const errEl = document.getElementById('forgot-error');
+            const succEl = document.getElementById('forgot-success');
+            errEl.textContent = ''; succEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/auth/forgot-password', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({email})
+                });
+                const data = await res.json();
+                succEl.textContent = data.message; succEl.style.display = '';
+            } catch (e) { errEl.textContent = 'Nettverksfeil'; }
+        }
+
+        async function doResetPassword() {
+            const password = document.getElementById('reset-password').value;
+            const password2 = document.getElementById('reset-password2').value;
+            const errEl = document.getElementById('reset-error');
+            const succEl = document.getElementById('reset-success');
+            errEl.textContent = ''; succEl.style.display = 'none';
+            if (password !== password2) { errEl.textContent = 'Passordene er ikke like'; return; }
+            if (password.length < 8) { errEl.textContent = 'Passord må ha minst 8 tegn'; return; }
+            try {
+                const res = await fetch('/api/auth/reset-password', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({token: _resetToken, password})
+                });
+                const data = await res.json();
+                if (!res.ok) { errEl.textContent = data.error || 'Feil'; return; }
+                succEl.textContent = data.message + ' Logger inn…'; succEl.style.display = '';
+                // Clear token from URL and switch to login after 1.5s
+                history.replaceState({}, '', '/');
+                _resetToken = null;
+                setTimeout(() => switchAuthTab('login'), 1500);
+            } catch (e) { errEl.textContent = 'Nettverksfeil'; }
+        }
+
+        async function doLogout() {
+            await fetch('/api/auth/logout', {method:'POST'});
+            currentUser = null;
+            document.getElementById('top-nav').style.display = 'none';
+            document.getElementById('auth-overlay').style.display = 'flex';
+        }
+
+        // ── Groups ────────────────────────────────────────────────────────────
+
+        async function loadGroups() {
+            try {
+                const res = await fetch('/api/groups');
+                if (!res.ok) return;
+                const groups = await res.json();
+                renderGroups(groups);
+            } catch (e) {}
+        }
+
+        let _editingGroupId = null;
+
+        function renderGroups(groups) {
+            const el = document.getElementById('groups-list');
+            if (!groups.length) {
+                el.innerHTML = '<p style="color:#94a3b8;font-size:13px;">Ingen grupper ennå.</p>';
+                return;
+            }
+            el.innerHTML = groups.map(g => `
+                <div class="group-item" id="group-item-${g.id}">
+                    <span class="group-name" onclick="selectGroup(${g.id})">${escapeHtml(g.name)}</span>
+                    <span class="group-count">${g.archer_count} skytter${g.archer_count !== 1 ? 'e' : ''}</span>
+                    <div class="group-actions">
+                        <button class="group-btn" title="Rediger skyttere" onclick="openGroupEditor(${g.id}, '${escapeHtml(g.name)}')">✏️</button>
+                        <button class="group-btn" title="Slett gruppe" onclick="deleteGroup(${g.id})">🗑</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function openGroupEditor(groupId, groupName) {
+            _editingGroupId = groupId;
+            document.getElementById('group-editor-title').textContent = groupName;
+            document.getElementById('group-editor').style.display = '';
+            await refreshGroupEditorArchers();
+        }
+
+        function closeGroupEditor() {
+            _editingGroupId = null;
+            document.getElementById('group-editor').style.display = 'none';
+        }
+
+        async function refreshGroupEditorArchers() {
+            if (!_editingGroupId) return;
+            const res = await fetch(`/api/groups/${_editingGroupId}/archers`);
+            const archers = await res.json();
+            const el = document.getElementById('group-editor-archers');
+            if (!archers.length) {
+                el.innerHTML = '<span style="color:#666;">Ingen skyttere i gruppen.</span>';
+                return;
+            }
+            el.innerHTML = archers.map(a => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;">
+                    <span>${escapeHtml(a.name)}</span>
+                    <button class="group-btn" title="Fjern" style="font-size:11px;"
+                            onclick="removeFromGroup(${a.id})">✕</button>
+                </div>`).join('');
+        }
+
+        async function addSelectedToGroup() {
+            if (!_editingGroupId) return;
+            const ids = [...selectedArcherIds];
+            if (!ids.length) { alert('Ingen skyttere er valgt i listen.'); return; }
+            await Promise.all(ids.map(id =>
+                fetch(`/api/groups/${_editingGroupId}/archers`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({archer_id: id})
+                })
+            ));
+            await refreshGroupEditorArchers();
+            await loadGroups();
+        }
+
+        async function removeFromGroup(archerId) {
+            if (!_editingGroupId) return;
+            await fetch(`/api/groups/${_editingGroupId}/archers/${archerId}`, {method:'DELETE'});
+            await refreshGroupEditorArchers();
+            await loadGroups();
+        }
+
+        async function createGroup() {
+            const input = document.getElementById('new-group-name');
+            const name = input.value.trim();
+            if (!name) return;
+            try {
+                const res = await fetch('/api/groups', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({name})
+                });
+                if (res.ok) { input.value = ''; await loadGroups(); }
+                else { const d = await res.json(); alert(d.error || 'Feil'); }
+            } catch (e) {}
+        }
+
+        async function deleteGroup(groupId) {
+            if (!confirm('Slett gruppe?')) return;
+            await fetch(`/api/groups/${groupId}`, {method:'DELETE'});
+            await loadGroups();
+        }
+
+        async function selectGroup(groupId) {
+            try {
+                const res = await fetch(`/api/groups/${groupId}/archers`);
+                if (!res.ok) return;
+                const archers = await res.json();
+                selectedArcherIds = new Set(archers.map(a => a.id));
+                renderArcherList(allArchers);
+                refreshView();
+                // Highlight active group
+                document.querySelectorAll('.group-item').forEach(el => el.classList.remove('active'));
+                const g = document.getElementById(`group-item-${groupId}`);
+                if (g) g.classList.add('active');
+            } catch (e) {}
+        }
+
+        // ── Admin panel ───────────────────────────────────────────────────────
+
+        function openAdminPanel() {
+            document.getElementById('admin-overlay').style.display = 'flex';
+            loadAdminUsers();
+        }
+
+        function closeAdminPanel() {
+            document.getElementById('admin-overlay').style.display = 'none';
+        }
+
+        async function loadAdminUsers() {
+            const content = document.getElementById('admin-content');
+            content.innerHTML = '<p style="color:#888">Laster…</p>';
+            try {
+                const res = await fetch('/api/admin/users');
+                if (!res.ok) { content.innerHTML = '<p style="color:#ff6464">Ingen tilgang</p>'; return; }
+                const users = await res.json();
+                if (!users.length) { content.innerHTML = '<p style="color:#888">Ingen brukere.</p>'; return; }
+                content.innerHTML = `<table class="admin-table">
+                    <thead><tr><th>ID</th><th>Brukernavn</th><th>E-post</th><th>Verifisert</th><th>Admin</th><th>Opprettet</th><th></th></tr></thead>
+                    <tbody>${users.map(u => `
+                        <tr>
+                            <td>${u.id}</td>
+                            <td>${escapeHtml(u.username)}</td>
+                            <td>${escapeHtml(u.email)}</td>
+                            <td>${u.is_verified ? '✅' : '⏳'}</td>
+                            <td>${u.is_admin ? '⭐' : ''}</td>
+                            <td style="color:#666;font-size:12px;">${(u.created_at||'').slice(0,10)}</td>
+                            <td><button class="btn-danger" ${u.id === currentUser?.id ? 'disabled title="Kan ikke slette deg selv"' : ''}
+                                onclick="deleteAdminUser(${u.id})">Slett</button></td>
+                        </tr>`).join('')}
+                    </tbody></table>`;
+            } catch (e) { content.innerHTML = '<p style="color:#ff6464">Feil ved lasting.</p>'; }
+        }
+
+        async function deleteAdminUser(userId) {
+            if (!confirm('Slett bruker?')) return;
+            const res = await fetch(`/api/admin/users/${userId}`, {method:'DELETE'});
+            if (res.ok) await loadAdminUsers();
+            else { const d = await res.json(); alert(d.error || 'Feil'); }
+        }
+
+        // ── App bootstrap ─────────────────────────────────────────────────────
+
+        async function initApp() {
+            // Show top nav
+            const nav = document.getElementById('top-nav');
+            nav.style.display = 'flex';
+            document.getElementById('nav-username').textContent = currentUser.username;
+            if (currentUser.is_admin) document.getElementById('nav-admin-btn').style.display = '';
+
+            initChart();
+            await loadArchers();
+            await loadFilters();
+            refreshView();
+            loadCompetitions();
+            loadGroups();
+            loadActivityChart();
+
             document.getElementById('html-file').addEventListener('change', (e) => {
                 const label = document.getElementById('file-label');
                 if (e.target.files.length > 0) {
@@ -718,6 +1335,43 @@
                     label.classList.remove('has-file');
                 }
             });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+
+            // Password-reset link: ?reset=TOKEN
+            const resetToken = params.get('reset');
+            if (resetToken) {
+                _resetToken = resetToken;
+                history.replaceState({}, '', '/');
+                document.getElementById('auth-overlay').style.display = 'flex';
+                switchAuthTab('reset');
+                return;
+            }
+
+            // Email-verified redirect: ?verified=1
+            if (params.get('verified') === '1') {
+                document.getElementById('verified-banner').style.display = '';
+                history.replaceState({}, '', '/');
+            }
+
+            // Check if already logged in (persistent session cookie)
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data.authenticated) {
+                    currentUser = data.user;
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    await initApp();
+                    return;
+                }
+            } catch (e) {}
+
+            // Not authenticated — show auth overlay
+            document.getElementById('auth-overlay').style.display = 'flex';
+            switchAuthTab('login');
         });
 
         // Initialize Chart
@@ -743,9 +1397,9 @@
                                ${checked}
                                onclick="event.stopPropagation()"
                                onchange="handleArcherCheckbox(${archer.id}, '${safeName}', this.checked)">
-                        <label for="chk-archer-${archer.id}" style="flex:1;cursor:pointer;">
+                        <label for="chk-archer-${archer.id}" style="flex:1;cursor:pointer;color:#334155;">
                             ${archer.name}
-                            <span style="color:#555;font-size:11px;margin-left:6px;">#${archer.id}</span>
+                            <span style="color:#94a3b8;font-size:11px;margin-left:6px;">#${archer.id}</span>
                         </label>
                     </li>`;
             }).join('');
@@ -827,11 +1481,12 @@
             const resultsSection = document.getElementById('results-section');
 
             if (count === 0) {
-                // No manual selection — compare ALL archers using current filters
+                // No manual selection — show top 20 archers as preview
                 statsSection.style.display = 'none';
                 resultsSection.style.display = 'none';
                 if (allArchers.length > 0) {
-                    await loadCurrentChart(allArchers.map(a => a.id));
+                    const previewIds = allArchers.slice(0, 20).map(a => a.id);
+                    await loadCurrentChart(previewIds);
                 } else {
                     chart.data.datasets = [];
                     chart.update();
@@ -863,16 +1518,26 @@
                 const catResponse = await fetch('/api/categories');
                 const categories = await catResponse.json();
 
-                const catSelect = document.getElementById('filter-category');
-                catSelect.innerHTML = '<option value="">All Categories</option>' +
+                const catOptions = '<option value="">All Categories</option>' +
                     categories.map(c => `<option value="${c.code}">${c.code} - ${c.description}</option>`).join('');
+                document.getElementById('filter-category').innerHTML = catOptions;
+                document.getElementById('topp-n-category').innerHTML =
+                    '<option value="">Alle klasser</option>' +
+                    categories.map(c => `<option value="${c.code}">${c.code} - ${c.description}</option>`).join('');
+
+                // Populate activity category list
+                _allActivityCategories = categories.map(c => c.code);
+                renderActivityCategoryList();
 
                 // Load distances
                 const distResponse = await fetch('/api/distances');
                 const distances = await distResponse.json();
 
-                const distSelect = document.getElementById('filter-distance');
-                distSelect.innerHTML = '<option value="">All Distances</option>' +
+                const distOptions = '<option value="">All Distances</option>' +
+                    distances.map(d => `<option value="${d}">${d}</option>`).join('');
+                document.getElementById('filter-distance').innerHTML = distOptions;
+                document.getElementById('topp-n-distance').innerHTML =
+                    '<option value="">Alle distanser</option>' +
                     distances.map(d => `<option value="${d}">${d}</option>`).join('');
             } catch (error) {
                 console.error('Error loading filters:', error);
@@ -956,6 +1621,25 @@
             }
         }
 
+        // Build dataset style based on current chartType
+        function buildTimeDataset(ds, index) {
+            const color = chartColors[index % chartColors.length];
+            const isArea = chartType === 'area';
+            const isScatter = chartType === 'scatter';
+            return {
+                label: ds.label,
+                data: ds.dates.map((date, i) => ({ x: new Date(date), y: ds.data[i] })),
+                borderColor: color,
+                backgroundColor: isArea ? color + '22' : color + '18',
+                fill: isArea,
+                tension: isScatter ? 0 : 0.35,
+                pointRadius: isScatter ? 6 : 4,
+                pointHoverRadius: 8,
+                pointBackgroundColor: color,
+                showLine: !isScatter
+            };
+        }
+
         // Load chart data for a single archer (time mode)
         async function loadArcherChart(archerId) {
             const { category, distance, date_from, date_to } = getFilters();
@@ -970,24 +1654,13 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
-                if (chart.config.type !== 'line') {
-                    rebuildChart('line');
-                }
+                const needsRebuild = chartType === 'bar' || chart.config.type === 'bar';
+                if (needsRebuild) rebuildChart(chartType === 'bar' ? 'line' : chartType);
+                else if (chart.config.type !== (chartType === 'scatter' ? 'scatter' : 'line')) rebuildChart(chartType);
 
-                chart.data.datasets = data.datasets.map((ds, index) => ({
-                    label: ds.label,
-                    data: ds.dates.map((date, i) => ({
-                        x: new Date(date),
-                        y: ds.data[i]
-                    })),
-                    borderColor: chartColors[index % chartColors.length],
-                    backgroundColor: chartColors[index % chartColors.length] + '20',
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 8
-                }));
-
+                chart.data.datasets = data.datasets.map((ds, index) => buildTimeDataset(ds, index));
                 chart.update();
+                showChartTypeBar();
             } catch (error) {
                 console.error('Error loading chart:', error);
             }
@@ -1014,24 +1687,13 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
-                if (chart.config.type !== 'line') {
-                    rebuildChart('line');
-                }
+                const needsRebuild = chartType === 'bar' || chart.config.type === 'bar';
+                if (needsRebuild) rebuildChart('line');
+                else if (chart.config.type !== (chartType === 'scatter' ? 'scatter' : 'line')) rebuildChart(chartType);
 
-                chart.data.datasets = data.datasets.map((ds, index) => ({
-                    label: ds.label,
-                    data: ds.dates.map((date, i) => ({
-                        x: new Date(date),
-                        y: ds.data[i]
-                    })),
-                    borderColor: chartColors[index % chartColors.length],
-                    backgroundColor: chartColors[index % chartColors.length] + '20',
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 8
-                }));
-
+                chart.data.datasets = data.datasets.map((ds, index) => buildTimeDataset(ds, index));
                 chart.update();
+                showChartTypeBar();
             } catch (error) {
                 console.error('Error loading comparison chart:', error);
             }
@@ -1051,7 +1713,9 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
-                rebuildChart('bar');
+                // For yearly: bar or line (ignore scatter/area)
+                const yearlyType = (chartType === 'line') ? 'line' : 'bar';
+                rebuildChart(yearlyType);
 
                 if (!data.datasets || data.datasets.length === 0) {
                     chart.data.labels = [];
@@ -1067,22 +1731,35 @@
 
                 chart.data.labels = allYears;
                 chart.data.datasets = data.datasets.map((ds, index) => {
-                    // Align data to the union year labels (null for missing years)
                     const aligned = allYears.map(y => {
                         const pos = (ds.years || []).indexOf(y);
                         return pos >= 0 ? ds.data[pos] : null;
                     });
+                    const color = chartColors[index % chartColors.length];
+                    if (yearlyType === 'line') {
+                        return {
+                            label: ds.label,
+                            type: 'line',
+                            data: aligned,
+                            borderColor: color,
+                            backgroundColor: color + '18',
+                            pointRadius: 5,
+                            tension: 0.3
+                        };
+                    }
                     return {
                         label: ds.label,
                         type: 'bar',
                         data: aligned,
-                        backgroundColor: chartColors[index % chartColors.length] + '55',
-                        borderColor: chartColors[index % chartColors.length],
-                        borderWidth: 1
+                        backgroundColor: color + '44',
+                        borderColor: color,
+                        borderWidth: 2,
+                        borderRadius: 4
                     };
                 });
 
                 chart.update();
+                showChartTypeBar();
             } catch (error) {
                 console.error('Error loading yearly comparison chart:', error);
             }
@@ -1104,7 +1781,7 @@
                     <td>${r.distance}</td>
                     <td>${r.category}</td>
                     <td><strong>${r.score}</strong></td>
-                    <td style="color:#aaa">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
+                    <td style="color:#64748b">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
                     <td>${getPlacementBadge(r.placement)}</td>
                 </tr>
             `).join('');
@@ -1135,55 +1812,41 @@
             loadCompetitions();
         }
 
-        // Import results
-        async function importResults() {
-            const archerName = document.getElementById('archer-name').value.trim();
-            const fileInput = document.getElementById('html-file');
-            const alertDiv = document.getElementById('import-alert');
+        // Topp N: fetch top archers and display on chart
+        async function showTopArchers() {
+            const n = document.getElementById('topp-n-count').value;
+            const category = document.getElementById('topp-n-category').value;
+            const distance = document.getElementById('topp-n-distance').value;
+            const dateFrom = document.getElementById('topp-n-date-from').value;
+            const dateTo = document.getElementById('topp-n-date-to').value;
 
-            if (!archerName) {
-                showAlert(alertDiv, 'Please enter archer name', 'error');
+            const params = new URLSearchParams({ n });
+            if (category) params.append('category', category);
+            if (distance) params.append('distance', distance);
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+
+            const resp = await fetch('/api/top-archers?' + params.toString());
+            if (!resp.ok) return;
+            const topArchers = await resp.json();
+            if (!topArchers.length) {
+                alert('Ingen skyttere funnet med valgte filtre.');
                 return;
             }
 
-            if (!fileInput.files.length) {
-                showAlert(alertDiv, 'Please select an HTML file', 'error');
-                return;
-            }
+            // Select those archers and load compare chart
+            selectedArcherIds.clear();
+            topArchers.forEach(a => selectedArcherIds.add(a.id));
+            filterArcherList(document.getElementById('archer-search')?.value || '');
+            showChartTypeBar();
 
-            const formData = new FormData();
-            formData.append('archer_name', archerName);
-            formData.append('file', fileInput.files[0]);
+            // Apply same filters to chart
+            if (category) document.getElementById('filter-category').value = category;
+            if (distance) document.getElementById('filter-distance').value = distance;
+            if (dateFrom) document.getElementById('filter-date-from').value = dateFrom;
+            if (dateTo) document.getElementById('filter-date-to').value = dateTo;
 
-            try {
-                const response = await fetch('/api/import/file', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    showAlert(alertDiv, result.message, 'success');
-
-                    // Reset form
-                    document.getElementById('archer-name').value = '';
-                    fileInput.value = '';
-                    document.getElementById('file-label').textContent = '📄 Drop HTML file here or click to browse';
-                    document.getElementById('file-label').classList.remove('has-file');
-
-                    // Reload archers list and filters
-                    loadArchers();
-                    loadFilters();
-
-                    // Select the new archer
-                    setTimeout(() => selectArcher(result.archer_id, archerName), 500);
-                } else {
-                    showAlert(alertDiv, result.error || 'Import failed', 'error');
-                }
-            } catch (error) {
-                showAlert(alertDiv, 'Error importing results: ' + error.message, 'error');
-            }
+            loadCurrentChart();
         }
 
         // Chart mode toggle
@@ -1212,12 +1875,26 @@
         }
 
         // Rebuild chart with a new type (destroys existing instance)
+        // type: 'bar' | 'line' | 'scatter' | 'area' (area = line with fill)
         function rebuildChart(type) {
             if (chart) {
                 chart.destroy();
                 chart = null;
             }
             const ctx = document.getElementById('scores-chart').getContext('2d');
+
+            const lightTooltip = {
+                backgroundColor: 'rgba(255,255,255,0.97)',
+                titleColor: '#1e293b',
+                bodyColor: '#475569',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                padding: 10,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+            };
+            const gridColor = 'rgba(148,163,184,0.15)';
+            const tickColor = '#94a3b8';
+
             if (type === 'bar') {
                 chart = new Chart(ctx, {
                     type: 'bar',
@@ -1226,11 +1903,9 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { labels: { color: '#e0e0e0' } },
+                            legend: { labels: { color: '#334155', font: { size: 13 } } },
                             tooltip: {
-                                backgroundColor: 'rgba(0,0,0,0.8)',
-                                titleColor: '#00d4ff',
-                                bodyColor: '#e0e0e0',
+                                ...lightTooltip,
                                 callbacks: {
                                     afterLabel: function(context) {
                                         const ds = context.dataset;
@@ -1243,30 +1918,32 @@
                             }
                         },
                         scales: {
-                            x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                            y: { beginAtZero: false, ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                            x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+                            y: { beginAtZero: false, ticks: { color: tickColor }, grid: { color: gridColor } }
                         }
                     }
                 });
             } else {
+                // line, area, scatter all use time x-axis
+                const chartJsType = type === 'scatter' ? 'scatter' : 'line';
                 chart = new Chart(ctx, {
-                    type: 'line',
+                    type: chartJsType,
                     data: { datasets: [] },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { labels: { color: '#e0e0e0' } },
-                            tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#00d4ff', bodyColor: '#e0e0e0' }
+                            legend: { labels: { color: '#334155', font: { size: 13 } } },
+                            tooltip: { ...lightTooltip }
                         },
                         scales: {
                             x: {
                                 type: 'time',
                                 time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } },
-                                ticks: { color: '#888' },
-                                grid: { color: 'rgba(255,255,255,0.1)' }
+                                ticks: { color: tickColor },
+                                grid: { color: gridColor }
                             },
-                            y: { beginAtZero: false, ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                            y: { beginAtZero: false, ticks: { color: tickColor }, grid: { color: gridColor } }
                         }
                     }
                 });
@@ -1287,7 +1964,8 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
-                rebuildChart('bar');
+                const yearlyType = (chartType === 'line') ? 'line' : 'bar';
+                rebuildChart(yearlyType);
 
                 if (!data.datasets || data.datasets.length === 0) {
                     chart.data.labels = [];
@@ -1304,16 +1982,19 @@
                 chart.data.datasets = [];
 
                 if (avgDs) {
-                    const ds = {
+                    chart.data.datasets.push({
                         label: 'Snitt',
-                        type: 'bar',
+                        type: yearlyType,
                         data: avgDs.data,
-                        backgroundColor: 'rgba(0, 212, 255, 0.35)',
-                        borderColor: 'rgba(0, 212, 255, 0.8)',
-                        borderWidth: 1,
+                        backgroundColor: yearlyType === 'bar' ? '#2563eb44' : '#2563eb18',
+                        borderColor: '#2563eb',
+                        borderWidth: yearlyType === 'bar' ? 2 : 2,
+                        borderRadius: yearlyType === 'bar' ? 4 : 0,
+                        tension: 0.3,
+                        fill: yearlyType === 'line',
+                        pointRadius: yearlyType === 'line' ? 5 : 0,
                         _competitions: avgDs.competitions || []
-                    };
-                    chart.data.datasets.push(ds);
+                    });
                 }
 
                 if (bestDs) {
@@ -1321,15 +2002,16 @@
                         label: 'Best',
                         type: 'line',
                         data: bestDs.data,
-                        borderColor: '#ff6384',
+                        borderColor: '#7c3aed',
                         backgroundColor: 'transparent',
                         pointRadius: 5,
                         pointHoverRadius: 8,
-                        tension: 0.2
+                        tension: 0.3
                     });
                 }
 
                 chart.update();
+                showChartTypeBar();
             } catch (error) {
                 console.error('Error loading yearly chart:', error);
             }
@@ -1348,6 +2030,109 @@
         let activeEventId = null;   // currently expanded event_db_id
         let activeEventDistance = null;
         let activeEventCategory = null;
+
+        // ==================== Active Archers Per Year ====================
+        let _activityChart = null;
+        let _allActivityCategories = [];   // all categories from /api/categories
+        let _selectedActivityCategories = new Set(); // empty = show total
+
+        async function loadActivityChart() {
+            let url = '/api/chart/active-archers';
+            const cats = [..._selectedActivityCategories];
+            if (cats.length > 0) {
+                url += '?' + cats.map(c => 'categories=' + encodeURIComponent(c)).join('&');
+            }
+            let data;
+            try {
+                const res = await fetch(url);
+                data = await res.json();
+            } catch (e) { return; }
+
+            document.getElementById('activity-incomplete-note').style.display =
+                data.historical_incomplete ? '' : 'none';
+
+            const years = data.years;
+            const palette = [
+                '#2563eb','#16a34a','#dc2626','#d97706','#7c3aed',
+                '#0891b2','#db2777','#65a30d','#ea580c','#4338ca',
+            ];
+            const datasets = data.datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                backgroundColor: palette[i % palette.length] + '99',
+                borderColor: palette[i % palette.length],
+                borderWidth: 2,
+                borderRadius: 4,
+            }));
+
+            if (_activityChart) _activityChart.destroy();
+            const ctx = document.getElementById('activity-chart').getContext('2d');
+            _activityChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: years, datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: datasets.length > 1 },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} skyttere`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Aktive skyttere' } },
+                        x: { title: { display: true, text: 'År' } }
+                    }
+                }
+            });
+        }
+
+        function renderActivityCategoryList(filter) {
+            const list = document.getElementById('activity-cat-list');
+            list.innerHTML = '';
+            const term = (filter || '').toLowerCase();
+            _allActivityCategories
+                .filter(c => !term || c.toLowerCase().includes(term))
+                .forEach(cat => {
+                    const checked = _selectedActivityCategories.has(cat);
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:3px 8px;border-radius:14px;border:1px solid var(--slate-200);background:' + (checked ? '#dbeafe' : '#fff');
+                    label.innerHTML = `<input type="checkbox" style="margin:0" ${checked ? 'checked' : ''} onchange="toggleActivityCategory('${cat}', this.checked)"> ${cat}`;
+                    list.appendChild(label);
+                });
+        }
+
+        function toggleActivityCategory(cat, checked) {
+            if (checked) _selectedActivityCategories.add(cat);
+            else _selectedActivityCategories.delete(cat);
+            renderActivityCategoryList(document.getElementById('activity-cat-search').value);
+            loadActivityChart();
+        }
+
+        function filterActivityCategories() {
+            renderActivityCategoryList(document.getElementById('activity-cat-search').value);
+        }
+
+        function activitySelectAll() {
+            _allActivityCategories.forEach(c => _selectedActivityCategories.add(c));
+            renderActivityCategoryList(document.getElementById('activity-cat-search').value);
+            loadActivityChart();
+        }
+
+        function activityClearAll() {
+            _selectedActivityCategories.clear();
+            renderActivityCategoryList(document.getElementById('activity-cat-search').value);
+            loadActivityChart();
+        }
+
+        function toggleActivityFilter() {
+            const panel = document.getElementById('activity-filter-panel');
+            const btn = document.getElementById('activity-filter-toggle');
+            const open = panel.style.display === 'none';
+            panel.style.display = open ? '' : 'none';
+            btn.textContent = open ? 'Velg klasser ▴' : 'Velg klasser ▾';
+        }
 
         async function loadCompetitions() {
             const { category, distance, date_from, date_to } = getFilters();
@@ -1465,7 +2250,7 @@
                         <td>${r.category}</td>
                         <td>${r.distance}</td>
                         <td><strong>${r.score}</strong></td>
-                        <td style="color:#aaa">${r.score_per_60}</td>
+                        <td style="color:#64748b">${r.score_per_60}</td>
                     </tr>`;
                 }).join('');
             } catch (e) {

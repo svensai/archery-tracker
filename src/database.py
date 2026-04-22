@@ -17,19 +17,30 @@ DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data',
 # Number of arrows shot in each competition format.
 # Used to normalise scores to a "per-60-arrows" basis for fair comparison.
 ARROWS_BY_DISTANCE: dict = {
-    '18 m':       60,
-    '25 m':       60,
-    '720-runde':  72,
-    '720 runde':  72,
-    '1440-runde': 144,
-    '1440 runde': 144,
-    '900':        90,
-    '900-runde':  90,
-    '50 m':       72,
-    '70 m':       72,
-    '60 m':       72,
-    '90 m':       36,
+    '18 m':            60,
+    '18 m (30 piler)': 30,   # kortere innendørsrunde
+    '25 m':            60,
+    '720-runde':       72,
+    '720 runde':       72,
+    '2 x 720 runde':   144,  # dobbelt 720-runde
+    '1440-runde':      144,
+    '1440 runde':      144,
+    '1/2 1440-runde':  72,   # halv 1440-runde, art. 1f)
+    '900':             90,
+    '900-runde':       90,
+    'Skandiarunde':    90,   # = 900-runde, 30p × 3 distanser, art. 1g)
+    '120 p. 25/18 m':  120,  # innendørs 120-pilers kombinasjonsrunde
+    'Norgesrunde':     60,   # Regelverk B, art. 103
+    '50 m':            72,
+    '70 m':            72,
+    '60 m':            72,
+    '90 m':            36,
 }
+
+
+# Maximum achievable score per format (10 pts/arrow).
+# Only formats in ARROWS_BY_DISTANCE can be validated; unknown formats are excluded.
+MAX_SCORE_BY_DISTANCE: dict = {dist: arrows * 10 for dist, arrows in ARROWS_BY_DISTANCE.items()}
 
 
 def score_per_60(score: int, distance: str) -> float:
@@ -357,6 +368,89 @@ def get_all_results(
     return results
 
 
+def get_flagged_results() -> List[Dict[str, Any]]:
+    """Return results whose score exceeds the theoretical maximum for their format.
+
+    Only formats listed in ARROWS_BY_DISTANCE are checked; unknown formats
+    (e.g. 3D, felt) are excluded because their ceiling is undefined.
+    Each returned row includes 'max_score' (the threshold that was breached).
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT r.*, e.name as event_name, e.event_id as external_event_id, a.name as archer_name
+        FROM results r
+        JOIN events e ON r.event_id = e.id
+        JOIN archers a ON r.archer_id = a.id
+        ORDER BY r.date DESC
+    ''')
+    flagged = []
+    for row in cursor.fetchall():
+        r = dict(row)
+        max_score = MAX_SCORE_BY_DISTANCE.get(r['distance'])
+        if max_score is not None and r['score'] > max_score:
+            r['max_score'] = max_score
+            r['score_per_60'] = score_per_60(r['score'], r['distance'])
+            flagged.append(r)
+    conn.close()
+    return flagged
+
+
+def get_active_archers_per_year(categories: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Return count of distinct active archers per year.
+
+    If categories is non-empty, returns one dataset per category.
+    If categories is empty/None, returns a single 'Totalt' dataset.
+    Also includes a flag indicating whether historical data is incomplete.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    if categories:
+        placeholders = ','.join('?' * len(categories))
+        cursor.execute(f'''
+            SELECT strftime('%Y', date) as year, category,
+                   COUNT(DISTINCT archer_id) as count
+            FROM results
+            WHERE category IN ({placeholders})
+            GROUP BY year, category
+            ORDER BY year, category
+        ''', categories)
+        rows = [dict(r) for r in cursor.fetchall()]
+        years = sorted(set(r['year'] for r in rows))
+        datasets = []
+        for cat in categories:
+            cat_data = {r['year']: r['count'] for r in rows if r['category'] == cat}
+            datasets.append({
+                'label': cat,
+                'data': [cat_data.get(y, 0) for y in years],
+            })
+    else:
+        cursor.execute('''
+            SELECT strftime('%Y', date) as year, COUNT(DISTINCT archer_id) as count
+            FROM results
+            GROUP BY year
+            ORDER BY year
+        ''')
+        rows = [dict(r) for r in cursor.fetchall()]
+        years = [r['year'] for r in rows]
+        datasets = [{'label': 'Totalt', 'data': [r['count'] for r in rows]}]
+
+    # Flag if historical sync is still incomplete (affects 2024/2025 counts)
+    cursor.execute(
+        'SELECT COUNT(*) FROM sync_status WHERE historical_synced=0 AND exists_online=1'
+    )
+    unsynced = cursor.fetchone()[0]
+    conn.close()
+
+    return {
+        'years': years,
+        'datasets': datasets,
+        'historical_incomplete': unsynced > 0,
+        'unsynced_count': unsynced,
+    }
+
+
 def get_categories() -> List[str]:
     """Get all unique categories."""
     conn = get_connection()
@@ -375,6 +469,46 @@ def get_distances() -> List[str]:
     distances = [row['distance'] for row in cursor.fetchall()]
     conn.close()
     return distances
+
+
+def get_top_archers(
+    n: int = 5,
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Return the top N archers by best score, with optional filters."""
+    n = max(2, min(10, n))
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = '''
+        SELECT a.id, a.name, MAX(r.score) as best_score, COUNT(*) as competitions
+        FROM results r
+        JOIN archers a ON r.archer_id = a.id
+        WHERE 1=1
+    '''
+    params: list = []
+    if category:
+        query += ' AND r.category = ?'
+        params.append(category)
+    if distance:
+        query += ' AND r.distance = ?'
+        params.append(distance)
+    if date_from:
+        query += ' AND r.date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND r.date <= ?'
+        params.append(date_to)
+    query += ' GROUP BY a.id, a.name ORDER BY best_score DESC LIMIT ?'
+    params.append(n)
+
+    cursor.execute(query, params)
+    result = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return result
 
 
 def get_archer_stats(archer_id: int) -> Dict[str, Any]:
@@ -912,6 +1046,7 @@ if os.environ.get('DATABASE_URL'):
             log_sync_error, get_unresolved_errors, resolve_error,
             start_sync_log, update_sync_log, get_recent_sync_logs,
             get_sync_stats,
+            get_top_archers,
         )
     except ImportError as _e:
         import warnings

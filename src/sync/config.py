@@ -29,7 +29,7 @@ class SyncConfig:
     retry_delay_base: float = 2.0  # Base delay for exponential backoff
     
     # Discovery settings
-    max_archer_id: int = 7000  # Maximum ID to scan for new archers
+    max_archer_id: int = 9000  # Maximum ID to scan for new archers
     discovery_batch_size: int = 100  # How many IDs to check per batch
     
     # Sync schedule (for daily sync)

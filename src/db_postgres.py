@@ -16,19 +16,28 @@ import psycopg2.pool
 import psycopg2.extras
 
 ARROWS_BY_DISTANCE: dict = {
-    '18 m':       60,
-    '25 m':       60,
-    '720-runde':  72,
-    '720 runde':  72,
-    '1440-runde': 144,
-    '1440 runde': 144,
-    '900':        90,
-    '900-runde':  90,
-    '50 m':       72,
-    '70 m':       72,
-    '60 m':       72,
-    '90 m':       36,
+    '18 m':            60,
+    '18 m (30 piler)': 30,   # kortere innendørsrunde
+    '25 m':            60,
+    '720-runde':       72,
+    '720 runde':       72,
+    '2 x 720 runde':   144,  # dobbelt 720-runde
+    '1440-runde':      144,
+    '1440 runde':      144,
+    '1/2 1440-runde':  72,   # halv 1440-runde, art. 1f)
+    '900':             90,
+    '900-runde':       90,
+    'Skandiarunde':    90,   # = 900-runde, 30p × 3 distanser, art. 1g)
+    '120 p. 25/18 m':  120,  # innendørs 120-pilers kombinasjonsrunde
+    'Norgesrunde':     60,   # Regelverk B, art. 103
+    '50 m':            72,
+    '70 m':            72,
+    '60 m':            72,
+    '90 m':            36,
 }
+
+
+MAX_SCORE_BY_DISTANCE: dict = {dist: arrows * 10 for dist, arrows in ARROWS_BY_DISTANCE.items()}
 
 
 def score_per_60(score: int, distance: str) -> float:
@@ -313,6 +322,67 @@ def get_all_results(category: Optional[str] = None,
         for r in rows:
             r['score_per_60'] = score_per_60(r['score'], r['distance'])
         return rows
+    finally:
+        _release(conn)
+
+
+def get_flagged_results() -> List[Dict[str, Any]]:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT r.*, e.name as event_name, e.event_id as external_event_id, a.name as archer_name
+            FROM results r
+            JOIN events e ON r.event_id = e.id
+            JOIN archers a ON r.archer_id = a.id
+            ORDER BY r.date DESC
+        ''')
+        flagged = []
+        for r in _rows_to_dicts(cur):
+            max_score = MAX_SCORE_BY_DISTANCE.get(r['distance'])
+            if max_score is not None and r['score'] > max_score:
+                r['max_score'] = max_score
+                r['score_per_60'] = score_per_60(r['score'], r['distance'])
+                flagged.append(r)
+        return flagged
+    finally:
+        _release(conn)
+
+
+def get_active_archers_per_year(categories: Optional[List[str]] = None) -> Dict[str, Any]:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        if categories:
+            placeholders = ','.join(['%s'] * len(categories))
+            cur.execute(f'''
+                SELECT to_char(date, 'YYYY') as year, category,
+                       COUNT(DISTINCT archer_id) as count
+                FROM results
+                WHERE category IN ({placeholders})
+                GROUP BY year, category
+                ORDER BY year, category
+            ''', categories)
+            rows = _rows_to_dicts(cur)
+            years = sorted(set(r['year'] for r in rows))
+            datasets = []
+            for cat in categories:
+                cat_data = {r['year']: r['count'] for r in rows if r['category'] == cat}
+                datasets.append({'label': cat, 'data': [cat_data.get(y, 0) for y in years]})
+        else:
+            cur.execute('''
+                SELECT to_char(date, 'YYYY') as year, COUNT(DISTINCT archer_id) as count
+                FROM results GROUP BY year ORDER BY year
+            ''')
+            rows = _rows_to_dicts(cur)
+            years = [r['year'] for r in rows]
+            datasets = [{'label': 'Totalt', 'data': [r['count'] for r in rows]}]
+        cur.execute(
+            'SELECT COUNT(*) FROM sync_status WHERE historical_synced=false AND exists_online=true'
+        )
+        unsynced = cur.fetchone()[0]
+        return {'years': years, 'datasets': datasets,
+                'historical_incomplete': unsynced > 0, 'unsynced_count': unsynced}
     finally:
         _release(conn)
 
@@ -611,6 +681,45 @@ def get_recent_sync_logs(limit: int = 20) -> List[Dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute('SELECT * FROM sync_log ORDER BY started_at DESC LIMIT %s', (limit,))
+        return _rows_to_dicts(cur)
+    finally:
+        _release(conn)
+
+
+def get_top_archers(
+    n: int = 5,
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Return the top N archers by best score, with optional filters."""
+    n = max(2, min(10, n))
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        query = '''
+            SELECT a.id, a.name, MAX(r.score) as best_score, COUNT(*) as competitions
+            FROM results r
+            JOIN archers a ON r.archer_id = a.id
+            WHERE 1=1
+        '''
+        params: list = []
+        if category:
+            query += ' AND r.category = %s'
+            params.append(category)
+        if distance:
+            query += ' AND r.distance = %s'
+            params.append(distance)
+        if date_from:
+            query += ' AND r.date >= %s'
+            params.append(date_from)
+        if date_to:
+            query += ' AND r.date <= %s'
+            params.append(date_to)
+        query += ' GROUP BY a.id, a.name ORDER BY best_score DESC LIMIT %s'
+        params.append(n)
+        cur.execute(query, params)
         return _rows_to_dicts(cur)
     finally:
         _release(conn)

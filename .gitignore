@@ -4,13 +4,12 @@ __pycache__/
 *.pyo
 *.pyd
 .env
-data/archery.db
-data/archery.db-shm
-data/archery.db-wal
-data/backups/
+data/
 .DS_Store
 *.egg-info/
 dist/
 build/
 .pytest_cache/
+.coverage
+htmlcov/
 .claude/settings.local.json

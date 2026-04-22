@@ -387,3 +387,178 @@ class TestBackupEndpoints:
             content_type='application/json',
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# /api/top-archers
+# ---------------------------------------------------------------------------
+
+class TestTopArchersEndpoint:
+    def _seed(self, flask_client):
+        """Insert 3 archers with results in 720-runde/RD category."""
+        from src.database import add_archer, add_event, add_result
+        a1 = json.loads(flask_client.post('/api/archers', data=json.dumps({'name': 'Archer Alpha'}),
+                                          content_type='application/json').data)['id']
+        a2 = json.loads(flask_client.post('/api/archers', data=json.dumps({'name': 'Archer Beta'}),
+                                          content_type='application/json').data)['id']
+        a3 = json.loads(flask_client.post('/api/archers', data=json.dumps({'name': 'Archer Gamma'}),
+                                          content_type='application/json').data)['id']
+        ev = add_event('TE1', 'TopEvent')
+        add_result(archer_id=a1, event_id=ev, date='2025-03-01', distance='720-runde', category='RD', score=574)
+        add_result(archer_id=a2, event_id=ev, date='2025-03-01', distance='720-runde', category='RD', score=497)
+        add_result(archer_id=a3, event_id=ev, date='2025-03-01', distance='720-runde', category='RD', score=409)
+        return [a1, a2, a3]
+
+    def test_top_archers_empty_db(self, flask_client):
+        resp = flask_client.get('/api/top-archers')
+        assert resp.status_code == 200
+        assert _json(resp) == []
+
+    def test_top_archers_returns_ranked_list(self, flask_client):
+        ids = self._seed(flask_client)
+        resp = flask_client.get('/api/top-archers?n=3')
+        assert resp.status_code == 200
+        data = _json(resp)
+        assert len(data) == 3
+        assert data[0]['best_score'] == 574
+        assert data[1]['best_score'] == 497
+        assert data[2]['best_score'] == 409
+
+    def test_top_archers_category_filter(self, flask_client):
+        self._seed(flask_client)
+        resp = flask_client.get('/api/top-archers?category=RD')
+        assert resp.status_code == 200
+        data = _json(resp)
+        assert len(data) >= 1
+        assert data[0]['best_score'] == 574
+
+    def test_top_archers_n_clamped_to_2(self, flask_client):
+        self._seed(flask_client)
+        resp = flask_client.get('/api/top-archers?n=1')
+        assert resp.status_code == 200
+        assert len(_json(resp)) == 2
+
+    def test_top_archers_n_clamped_to_10(self, flask_client):
+        self._seed(flask_client)
+        resp = flask_client.get('/api/top-archers?n=99')
+        assert resp.status_code == 200
+        assert len(_json(resp)) <= 10
+
+    def test_top_archers_date_filter(self, flask_client):
+        self._seed(flask_client)
+        resp = flask_client.get('/api/top-archers?date_from=2025-01-01&date_to=2025-12-31')
+        assert resp.status_code == 200
+        data = _json(resp)
+        assert len(data) >= 1
+
+
+# ---------------------------------------------------------------------------
+# /api/results/flagged
+# ---------------------------------------------------------------------------
+
+class TestFlaggedResultsEndpoint:
+    def _seed(self, flask_client):
+        from src.database import add_archer, add_event, add_result
+        archer_id = json.loads(flask_client.post(
+            '/api/archers',
+            data=json.dumps({'name': 'Test Archer'}),
+            content_type='application/json',
+        ).data)['id']
+        ev = add_event('FLG1', 'FlagEvent')
+        # Valid: 18 m max = 600
+        add_result(archer_id=archer_id, event_id=ev, date='2025-01-01',
+                   distance='18 m', category='RD', score=580)
+        # Invalid: 18 m max = 600, but score 650 exceeds it
+        add_result(archer_id=archer_id, event_id=ev, date='2025-01-02',
+                   distance='18 m', category='RD', score=650)
+        # Unknown format (3D) — must NOT be flagged even if score seems high
+        add_result(archer_id=archer_id, event_id=ev, date='2025-01-03',
+                   distance='3D-stevne', category='RD', score=999)
+        return archer_id
+
+    def test_flagged_returns_200(self, flask_client):
+        resp = flask_client.get('/api/results/flagged')
+        assert resp.status_code == 200
+
+    def test_flagged_empty_when_all_valid(self, flask_client):
+        from src.database import add_archer, add_event, add_result
+        archer_id = json.loads(flask_client.post(
+            '/api/archers',
+            data=json.dumps({'name': 'Clean Archer'}),
+            content_type='application/json',
+        ).data)['id']
+        ev = add_event('FLG2', 'CleanEvent')
+        add_result(archer_id=archer_id, event_id=ev, date='2025-01-01',
+                   distance='18 m', category='RD', score=597)
+        resp = flask_client.get('/api/results/flagged')
+        assert _json(resp) == []
+
+    def test_flagged_catches_over_max_score(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/results/flagged'))
+        assert len(data) == 1
+        assert data[0]['score'] == 650
+        assert data[0]['max_score'] == 600
+        assert data[0]['distance'] == '18 m'
+
+    def test_unknown_format_not_flagged(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/results/flagged'))
+        distances = [r['distance'] for r in data]
+        assert '3D-stevne' not in distances
+
+    def test_flagged_includes_score_per_60(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/results/flagged'))
+        assert len(data) == 1
+        assert 'score_per_60' in data[0]
+
+
+# ---------------------------------------------------------------------------
+# /api/chart/active-archers
+# ---------------------------------------------------------------------------
+
+class TestActiveArchersChart:
+    def _seed(self, flask_client):
+        from src.database import add_archer, add_event, add_result
+        a1 = json.loads(flask_client.post('/api/archers', data=json.dumps({'name': 'A1'}),
+                                          content_type='application/json').data)['id']
+        a2 = json.loads(flask_client.post('/api/archers', data=json.dumps({'name': 'A2'}),
+                                          content_type='application/json').data)['id']
+        ev = add_event('ACT1', 'ActEvent')
+        add_result(archer_id=a1, event_id=ev, date='2024-06-01', distance='18 m', category='C1', score=550)
+        add_result(archer_id=a2, event_id=ev, date='2024-06-01', distance='18 m', category='R1', score=520)
+        add_result(archer_id=a1, event_id=ev, date='2025-03-01', distance='18 m', category='C1', score=560)
+
+    def test_returns_200(self, flask_client):
+        resp = flask_client.get('/api/chart/active-archers')
+        assert resp.status_code == 200
+
+    def test_total_dataset_when_no_category(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/chart/active-archers'))
+        assert 'years' in data and 'datasets' in data
+        assert data['datasets'][0]['label'] == 'Totalt'
+        assert '2024' in data['years']
+        assert '2025' in data['years']
+
+    def test_total_counts_distinct_archers(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/chart/active-archers'))
+        idx_2024 = data['years'].index('2024')
+        assert data['datasets'][0]['data'][idx_2024] == 2   # a1 and a2
+
+    def test_per_category_datasets(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/chart/active-archers?categories=C1&categories=R1'))
+        labels = [ds['label'] for ds in data['datasets']]
+        assert 'C1' in labels and 'R1' in labels
+        idx_2024 = data['years'].index('2024')
+        c1_ds = next(ds for ds in data['datasets'] if ds['label'] == 'C1')
+        assert c1_ds['data'][idx_2024] == 1
+
+    def test_historical_incomplete_flag(self, flask_client):
+        data = _json(flask_client.get('/api/chart/active-archers'))
+        assert 'historical_incomplete' in data
+        assert 'unsynced_count' in data
+

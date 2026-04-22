@@ -47,7 +47,11 @@ def flask_client(monkeypatch, tmp_path):
     from src.database import init_database
     init_database()
 
+    from src.auth_db import create_auth_tables
+    create_auth_tables()
+
     from src.app import app
     app.config['TESTING'] = True
+    app.config['LOGIN_DISABLED'] = True  # bypass @login_required in tests
     with app.test_client() as client:
         yield client

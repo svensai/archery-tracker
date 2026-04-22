@@ -1,0 +1,58 @@
+services:
+
+  # ── Flask app (gunicorn) ──────────────────────────────────────────────────
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      SECRET_KEY:          ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL:        ${DATABASE_URL:-}          # empty = SQLite
+      MAIL_SERVER:         ${MAIL_SERVER:-}
+      MAIL_PORT:           ${MAIL_PORT:-587}
+      MAIL_USERNAME:       ${MAIL_USERNAME:-}
+      MAIL_PASSWORD:       ${MAIL_PASSWORD:-}
+      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-noreply@archery.local}
+      BASE_URL:            ${BASE_URL:-http://localhost}
+      HTTPS:               ${HTTPS:-false}
+      DEBUG:               "false"
+    volumes:
+      - archery_data:/app/data        # persists SQLite DB + backups
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+
+  # ── nginx reverse proxy ───────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/app/static:ro        # served directly by nginx
+    depends_on:
+      - web
+
+  # ── PostgreSQL (optional — activate with --profile postgres) ─────────────
+  db:
+    image: postgres:16-alpine
+    profiles: [postgres]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       archery
+      POSTGRES_USER:     archery
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-archery}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archery"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  archery_data:
+  postgres_data:
