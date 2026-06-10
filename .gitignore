@@ -13,3 +13,7 @@ build/
 .coverage
 htmlcov/
 .claude/settings.local.json
+
+# Screenshots and playwright artifacts
+*.png
+.playwright-mcp/
