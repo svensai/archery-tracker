@@ -28,7 +28,7 @@ docker compose up -d       # http://localhost
 python -m pytest tests/ -q
 ```
 
-130 tester. Alltid kjør disse etter endringer. Forventet output: `N passed`.
+155 tester. Alltid kjør disse etter endringer. Forventet output: `N passed`.
 
 ---
 

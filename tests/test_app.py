@@ -525,10 +525,13 @@ class TestActiveArchersChart:
                                           content_type='application/json').data)['id']
         a2 = json.loads(flask_client.post('/api/archers', data=json.dumps({'name': 'A2'}),
                                           content_type='application/json').data)['id']
-        ev = add_event('ACT1', 'ActEvent')
-        add_result(archer_id=a1, event_id=ev, date='2024-06-01', distance='18 m', category='C1', score=550)
-        add_result(archer_id=a2, event_id=ev, date='2024-06-01', distance='18 m', category='R1', score=520)
-        add_result(archer_id=a1, event_id=ev, date='2025-03-01', distance='18 m', category='C1', score=560)
+        # Two separate events — one per year. The same archer cannot reuse one
+        # event across years because of UNIQUE(archer_id, event_id, distance, category).
+        ev_2024 = add_event('ACT1', 'ActEvent2024')
+        ev_2025 = add_event('ACT2', 'ActEvent2025')
+        add_result(archer_id=a1, event_id=ev_2024, date='2024-06-01', distance='18 m', category='C1', score=550)
+        add_result(archer_id=a2, event_id=ev_2024, date='2024-06-01', distance='18 m', category='R1', score=520)
+        add_result(archer_id=a1, event_id=ev_2025, date='2025-03-01', distance='18 m', category='C1', score=560)
 
     def test_returns_200(self, flask_client):
         resp = flask_client.get('/api/chart/active-archers')
@@ -562,3 +565,103 @@ class TestActiveArchersChart:
         assert 'historical_incomplete' in data
         assert 'unsynced_count' in data
 
+
+
+# ---------------------------------------------------------------------------
+# /api/class-report and /api/upcoming-archers
+# ---------------------------------------------------------------------------
+
+class TestClassReport:
+    def _seed(self, flask_client):
+        from src.database import add_archer, add_event, add_result
+        a1 = add_archer('Klasse A1')
+        a2 = add_archer('Klasse A2')
+        ev24 = add_event('CR24', 'KlasseStevne 2024')
+        ev25 = add_event('CR25', 'KlasseStevne 2025')
+        add_result(archer_id=a1, event_id=ev24, date='2024-02-01', distance='18 m', category='R1', score=500)
+        add_result(archer_id=a2, event_id=ev24, date='2024-02-01', distance='18 m', category='R1', score=540)
+        add_result(archer_id=a1, event_id=ev25, date='2025-02-01', distance='18 m', category='R1', score=520)
+        # Different format must not be mixed into the 18 m rows
+        add_result(archer_id=a1, event_id=ev25, date='2025-02-01', distance='3D-stevne', category='R1', score=300)
+        return a1, a2
+
+    def test_returns_200_empty(self, flask_client):
+        resp = flask_client.get('/api/class-report')
+        assert resp.status_code == 200
+        assert _json(resp) == []
+
+    def test_groups_by_category_distance_year(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/class-report'))
+        keys = {(r['category'], r['distance'], r['year']) for r in rows}
+        assert ('R1', '18 m', '2024') in keys
+        assert ('R1', '18 m', '2025') in keys
+        assert ('R1', '3D-stevne', '2025') in keys
+
+    def test_2024_level_stats(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/class-report?distance=18 m'))
+        r24 = next(r for r in rows if r['year'] == '2024')
+        assert r24['archers'] == 2
+        assert r24['results'] == 2
+        assert r24['avg_score'] == 520.0     # mean of season averages 500 and 540
+        assert r24['median_score'] == 520.0
+        assert r24['best_score'] == 540
+
+    def test_category_filter(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/class-report?category=C1'))
+        assert rows == []
+
+
+class TestUpcomingArchers:
+    def _seed(self, flask_client):
+        """One clearly improving archer, one flat, one below min_results."""
+        from src.database import add_archer, add_event, add_result
+        improver = add_archer('Talent')
+        flat = add_archer('Stabil')
+        sporadic = add_archer('Sporadisk')
+        for i, (year, scores) in enumerate([('2024', [400, 410, 420]), ('2025', [480, 490, 500])]):
+            for j, score in enumerate(scores):
+                ev = add_event(f'UP{i}{j}', f'Stevne {year}-{j}')
+                add_result(archer_id=improver, event_id=ev, date=f'{year}-03-0{j+1}',
+                           distance='18 m', category='R1', score=score)
+                add_result(archer_id=flat, event_id=ev, date=f'{year}-03-0{j+1}',
+                           distance='18 m', category='R1', score=450)
+                if j == 0:  # sporadic archer: only one start per season
+                    add_result(archer_id=sporadic, event_id=ev, date=f'{year}-03-0{j+1}',
+                               distance='18 m', category='R1', score=300 + i * 200)
+        return improver, flat, sporadic
+
+    def test_returns_200_empty(self, flask_client):
+        resp = flask_client.get('/api/upcoming-archers')
+        assert resp.status_code == 200
+        assert _json(resp) == []
+
+    def test_improver_ranked_first(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/upcoming-archers'))
+        assert rows[0]['archer_name'] == 'Talent'
+        assert rows[0]['improvement'] == 80.0   # 490 avg vs 410 avg
+        assert rows[0]['prev_year'] == '2024'
+        assert rows[0]['last_year'] == '2025'
+
+    def test_min_results_filters_sporadic(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/upcoming-archers'))
+        names = [r['archer_name'] for r in rows]
+        assert 'Sporadisk' not in names   # only 1 start per season < default 3
+        rows_loose = _json(flask_client.get('/api/upcoming-archers?min_results=1'))
+        names_loose = [r['archer_name'] for r in rows_loose]
+        assert 'Sporadisk' in names_loose
+
+    def test_flat_archer_has_zero_improvement(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/upcoming-archers'))
+        flat = next(r for r in rows if r['archer_name'] == 'Stabil')
+        assert flat['improvement'] == 0.0
+
+    def test_category_filter_excludes_all(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/upcoming-archers?category=C1'))
+        assert rows == []

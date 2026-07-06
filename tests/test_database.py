@@ -38,9 +38,10 @@ class TestScorePer60:
     def test_1440_runde_normalised(self):
         assert score_per_60(1200, '1440-runde') == round(1200 / 144 * 60, 1)
 
-    def test_unknown_distance_defaults_to_60(self):
-        """Unrecognised distances default to 60 arrows."""
-        assert score_per_60(400, 'Ukjent format') == 400.0
+    def test_unknown_distance_returns_none(self):
+        """Unrecognised formats (3D, felt, ...) have no per-60 equivalent."""
+        assert score_per_60(400, 'Ukjent format') is None
+        assert score_per_60(300, '3D-stevne') is None
 
     def test_arrows_by_distance_has_expected_keys(self):
         for dist in ('18 m', '25 m', '720-runde', '1440-runde', '900-runde'):

@@ -40,8 +40,11 @@ ARROWS_BY_DISTANCE: dict = {
 MAX_SCORE_BY_DISTANCE: dict = {dist: arrows * 10 for dist, arrows in ARROWS_BY_DISTANCE.items()}
 
 
-def score_per_60(score: int, distance: str) -> float:
-    arrows = ARROWS_BY_DISTANCE.get(distance, 60)
+def score_per_60(score: int, distance: str) -> Optional[float]:
+    # None for unknown formats (3D, felt, ...) — not comparable to target rounds
+    arrows = ARROWS_BY_DISTANCE.get(distance)
+    if arrows is None:
+        return None
     return round(score / arrows * 60, 1)
 
 _DATABASE_URL = os.environ.get('DATABASE_URL', '')

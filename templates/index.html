@@ -1325,7 +1325,10 @@
             loadGroups();
             loadActivityChart();
 
-            document.getElementById('html-file').addEventListener('change', (e) => {
+            // The file-import UI is not present on this page; guard so a
+            // missing element can't crash app bootstrap (a crash here used to
+            // bubble up and re-show the login overlay for logged-in users).
+            document.getElementById('html-file')?.addEventListener('change', (e) => {
                 const label = document.getElementById('file-label');
                 if (e.target.files.length > 0) {
                     label.textContent = '✓ ' + e.target.files[0].name;
@@ -1358,16 +1361,26 @@
             }
 
             // Check if already logged in (persistent session cookie)
+            let authenticated = false;
             try {
                 const res = await fetch('/api/auth/me');
                 const data = await res.json();
                 if (data.authenticated) {
+                    authenticated = true;
                     currentUser = data.user;
-                    document.getElementById('auth-overlay').style.display = 'none';
-                    await initApp();
-                    return;
                 }
             } catch (e) {}
+
+            if (authenticated) {
+                document.getElementById('auth-overlay').style.display = 'none';
+                // An error during app init must not re-show the login overlay
+                try {
+                    await initApp();
+                } catch (e) {
+                    console.error('Error initialising app:', e);
+                }
+                return;
+            }
 
             // Not authenticated — show auth overlay
             document.getElementById('auth-overlay').style.display = 'flex';
@@ -1481,16 +1494,23 @@
             const resultsSection = document.getElementById('results-section');
 
             if (count === 0) {
-                // No manual selection — show top 20 archers as preview
+                // No manual selection — preview the top archers by best score
+                // (most archers in the DB have no results, so an alphabetical
+                // slice would give a near-empty chart)
                 statsSection.style.display = 'none';
                 resultsSection.style.display = 'none';
-                if (allArchers.length > 0) {
-                    const previewIds = allArchers.slice(0, 20).map(a => a.id);
-                    await loadCurrentChart(previewIds);
-                } else {
-                    chart.data.datasets = [];
-                    chart.update();
+                try {
+                    const resp = await fetch('/api/top-archers?n=10');
+                    const top = resp.ok ? await resp.json() : [];
+                    if (top.length > 0) {
+                        await loadCurrentChart(top.map(a => a.id));
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error loading preview:', e);
                 }
+                chart.data.datasets = [];
+                chart.update();
                 return;
             }
 
@@ -2250,7 +2270,7 @@
                         <td>${r.category}</td>
                         <td>${r.distance}</td>
                         <td><strong>${r.score}</strong></td>
-                        <td style="color:#64748b">${r.score_per_60}</td>
+                        <td style="color:#64748b">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
                     </tr>`;
                 }).join('');
             } catch (e) {

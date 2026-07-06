@@ -30,11 +30,12 @@ from src.database import (
     init_database, add_archer, add_event, add_result,
     get_all_archers, get_archer_results, get_all_results,
     get_categories, get_distances, get_archer_stats,
-    get_archer_yearly_stats,
+    get_archer_yearly_stats, get_archer_name, get_yearly_stats_bulk,
     get_events_list, get_event_results,
     get_sync_stats, get_all_sync_status, get_recent_sync_logs,
     get_unresolved_errors, resolve_error,
     get_top_archers, get_flagged_results, get_active_archers_per_year,
+    get_class_report, get_improving_archers,
 )
 from src.scraper import parse_result_html, parse_html_file, get_category_description
 from src.backup import create_backup, list_backups, restore_backup
@@ -441,8 +442,7 @@ def api_chart_yearly(archer_id):
 
     rows = get_archer_yearly_stats(archer_id, category, distance, date_from, date_to)
 
-    archers = get_all_archers()
-    archer_name = next((a['name'] for a in archers if a['id'] == archer_id), '')
+    archer_name = get_archer_name(archer_id)
 
     if not rows:
         return jsonify({'archer_name': archer_name, 'datasets': []})
@@ -480,27 +480,61 @@ def api_chart_yearly_compare():
     if not archer_ids:
         return jsonify({'error': 'archer_ids required'}), 400
 
-    all_years: set = set()
-    archer_rows: dict = {}
-    archers = get_all_archers()
-    archer_name_map = {a['id']: a['name'] for a in archers}
+    stats = get_yearly_stats_bulk(archer_ids, category, distance, date_from, date_to)
 
-    for archer_id in archer_ids:
-        rows = get_archer_yearly_stats(archer_id, category, distance, date_from, date_to)
-        archer_rows[archer_id] = {r['year']: r for r in rows}
-        all_years.update(r['year'] for r in rows)
+    all_years: set = set()
+    for entry in stats.values():
+        all_years.update(entry['years'])
 
     years = sorted(all_years)
     datasets = []
     for archer_id in archer_ids:
-        row_map = archer_rows[archer_id]
+        entry = stats.get(archer_id)
+        if entry is None:
+            name = get_archer_name(archer_id) or str(archer_id)
+            datasets.append({'label': name, 'data': [None] * len(years), 'years': years})
+            continue
+        row_map = entry['years']
         datasets.append({
-            'label': archer_name_map.get(archer_id, str(archer_id)),
+            'label': entry['name'],
             'data': [row_map[y]['avg_score'] if y in row_map else None for y in years],
             'years': years,
         })
 
     return jsonify({'datasets': datasets})
+
+
+@app.route('/api/class-report', methods=['GET'])
+@login_required
+def api_class_report():
+    """Level report per (category, distance, year).
+
+    Query params: category, distance, date_from, date_to.
+    Each row: archers, results, avg_score, median_score, best_score —
+    the basis for judging the general level of a class over time.
+    """
+    category = request.args.get('category') or None
+    distance = request.args.get('distance') or None
+    date_from = request.args.get('date_from') or None
+    date_to = request.args.get('date_to') or None
+    return jsonify(get_class_report(category, distance, date_from, date_to))
+
+
+@app.route('/api/upcoming-archers', methods=['GET'])
+@login_required
+def api_upcoming_archers():
+    """Archers with the biggest season-over-season improvement.
+
+    Query params:
+    - category, distance: compare within one class/format only
+    - min_results: minimum competitions per season to qualify (default 3)
+    - limit: max rows (default 20, capped at 100)
+    """
+    category = request.args.get('category') or None
+    distance = request.args.get('distance') or None
+    min_results = request.args.get('min_results', 3, type=int)
+    limit = request.args.get('limit', 20, type=int)
+    return jsonify(get_improving_archers(category, distance, min_results, limit))
 
 
 # ==================== Sync API Endpoints ====================

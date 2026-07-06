@@ -43,9 +43,16 @@ ARROWS_BY_DISTANCE: dict = {
 MAX_SCORE_BY_DISTANCE: dict = {dist: arrows * 10 for dist, arrows in ARROWS_BY_DISTANCE.items()}
 
 
-def score_per_60(score: int, distance: str) -> float:
-    """Return score normalised to a 60-arrow basis."""
-    arrows = ARROWS_BY_DISTANCE.get(distance, 60)
+def score_per_60(score: int, distance: str) -> Optional[float]:
+    """Return score normalised to a 60-arrow basis.
+
+    Returns None for formats without a known arrow count (3D, felt, ...) —
+    pretending they are 60-arrow rounds would make them look comparable
+    to target rounds when they are not.
+    """
+    arrows = ARROWS_BY_DISTANCE.get(distance)
+    if arrows is None:
+        return None
     return round(score / arrows * 60, 1)
 
 
@@ -172,6 +179,7 @@ def init_database():
 
     # Create indexes for faster queries
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_results_archer ON results(archer_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_results_event ON results(event_id)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_results_date ON results(date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_results_category ON results(category)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_archers_external_id ON archers(external_id)')
@@ -595,6 +603,211 @@ def get_archer_yearly_stats(
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
+
+
+def get_archer_name(archer_id: int) -> str:
+    """Get a single archer's name (empty string if not found)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT name FROM archers WHERE id = ?', (archer_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['name'] if row else ''
+
+
+def get_yearly_stats_bulk(
+    archer_ids: List[int],
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Per-year aggregate statistics for many archers in one query.
+
+    Returns {archer_id: {'name': ..., 'years': {year: row}}} where each row
+    contains year, competitions, avg_score, best_score, worst_score.
+    """
+    if not archer_ids:
+        return {}
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    placeholders = ','.join('?' * len(archer_ids))
+    query = f'''
+        SELECT
+            r.archer_id,
+            a.name                  AS archer_name,
+            strftime('%Y', r.date)  AS year,
+            COUNT(*)                AS competitions,
+            ROUND(AVG(r.score), 1)  AS avg_score,
+            MAX(r.score)            AS best_score,
+            MIN(r.score)            AS worst_score
+        FROM results r
+        JOIN archers a ON a.id = r.archer_id
+        WHERE r.archer_id IN ({placeholders})
+    '''
+    params: list = list(archer_ids)
+
+    if category:
+        query += ' AND r.category = ?'
+        params.append(category)
+    if distance:
+        query += ' AND r.distance = ?'
+        params.append(distance)
+    if date_from:
+        query += ' AND r.date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND r.date <= ?'
+        params.append(date_to)
+
+    query += " GROUP BY r.archer_id, strftime('%Y', r.date) ORDER BY r.archer_id, year"
+
+    cursor.execute(query, params)
+    stats: Dict[int, Dict[str, Any]] = {}
+    for row in cursor.fetchall():
+        r = dict(row)
+        entry = stats.setdefault(r['archer_id'], {'name': r['archer_name'], 'years': {}})
+        entry['years'][r['year']] = r
+    conn.close()
+    return stats
+
+
+# ============== Class-level analysis ==============
+
+def _per_archer_season_rows(
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """One row per (archer, category, distance, year) with season aggregates."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = '''
+        SELECT
+            r.archer_id,
+            a.name                  AS archer_name,
+            a.club,
+            r.category,
+            r.distance,
+            strftime('%Y', r.date)  AS year,
+            COUNT(*)                AS competitions,
+            ROUND(AVG(r.score), 1)  AS avg_score,
+            MAX(r.score)            AS best_score
+        FROM results r
+        JOIN archers a ON a.id = r.archer_id
+        WHERE 1=1
+    '''
+    params: list = []
+    if category:
+        query += ' AND r.category = ?'
+        params.append(category)
+    if distance:
+        query += ' AND r.distance = ?'
+        params.append(distance)
+    if date_from:
+        query += ' AND r.date >= ?'
+        params.append(date_from)
+    if date_to:
+        query += ' AND r.date <= ?'
+        params.append(date_to)
+    query += " GROUP BY r.archer_id, r.category, r.distance, strftime('%Y', r.date)"
+
+    cursor.execute(query, params)
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_class_report(
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Level report per (category, distance, year): how many archers competed
+    and how strong the class is (median/average of the archers' season
+    averages, plus the best single score).
+
+    Grouping always includes distance so scores from different formats
+    (e.g. 18 m vs 3D) are never averaged together.
+    """
+    season_rows = _per_archer_season_rows(category, distance, date_from, date_to)
+
+    groups: Dict[tuple, List[Dict[str, Any]]] = {}
+    for r in season_rows:
+        groups.setdefault((r['category'], r['distance'], r['year']), []).append(r)
+
+    report = []
+    for (cat, dist, year), rows in sorted(groups.items()):
+        avgs = sorted(r['avg_score'] for r in rows)
+        mid = len(avgs) // 2
+        median = avgs[mid] if len(avgs) % 2 else round((avgs[mid - 1] + avgs[mid]) / 2, 1)
+        report.append({
+            'category': cat,
+            'distance': dist,
+            'year': year,
+            'archers': len(rows),
+            'results': sum(r['competitions'] for r in rows),
+            'avg_score': round(sum(avgs) / len(avgs), 1),
+            'median_score': median,
+            'best_score': max(r['best_score'] for r in rows),
+        })
+    return report
+
+
+def get_improving_archers(
+    category: Optional[str] = None,
+    distance: Optional[str] = None,
+    min_results: int = 3,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """
+    Archers with the biggest season-over-season improvement in average score,
+    compared within the same category and distance (so the change is not an
+    artefact of switching class or format).
+
+    Only archer-seasons with at least min_results competitions count, to
+    filter out noise from one-off starts. The two most recent qualifying
+    seasons are compared.
+    """
+    season_rows = _per_archer_season_rows(category, distance)
+
+    by_archer: Dict[tuple, List[Dict[str, Any]]] = {}
+    for r in season_rows:
+        if r['competitions'] >= min_results:
+            by_archer.setdefault((r['archer_id'], r['category'], r['distance']), []).append(r)
+
+    improvers = []
+    for (archer_id, cat, dist), rows in by_archer.items():
+        if len(rows) < 2:
+            continue
+        rows.sort(key=lambda r: r['year'])
+        prev, last = rows[-2], rows[-1]
+        delta = round(last['avg_score'] - prev['avg_score'], 1)
+        improvers.append({
+            'archer_id': archer_id,
+            'archer_name': last['archer_name'],
+            'club': last['club'],
+            'category': cat,
+            'distance': dist,
+            'prev_year': prev['year'],
+            'prev_avg': prev['avg_score'],
+            'prev_competitions': prev['competitions'],
+            'last_year': last['year'],
+            'last_avg': last['avg_score'],
+            'last_competitions': last['competitions'],
+            'improvement': delta,
+            'improvement_pct': round(delta / prev['avg_score'] * 100, 1) if prev['avg_score'] else None,
+        })
+
+    improvers.sort(key=lambda r: r['improvement'], reverse=True)
+    return improvers[:max(1, min(100, limit))]
 
 
 # ============== Competition / Event browsing ==============

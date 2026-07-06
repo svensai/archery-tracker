@@ -264,6 +264,74 @@ paths:
         '400':
           description: archer_ids required
 
+  /api/class-report:
+    get:
+      tags: [analysis]
+      summary: Level report per (category, distance, year)
+      description: >
+        Aggregated level statistics for each class: number of active archers,
+        average and median of the archers' season averages, and best single
+        score. Grouping always includes distance so different formats are
+        never averaged together.
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: distance, in: query, schema: { type: string } }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    category: { type: string }
+                    distance: { type: string }
+                    year: { type: string }
+                    archers: { type: integer }
+                    results: { type: integer }
+                    avg_score: { type: number }
+                    median_score: { type: number }
+                    best_score: { type: integer }
+
+  /api/upcoming-archers:
+    get:
+      tags: [analysis]
+      summary: Archers with the biggest season-over-season improvement
+      description: >
+        Compares each archer's average score in their two most recent
+        qualifying seasons within the same category and distance. Seasons
+        with fewer than min_results competitions are ignored.
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: distance, in: query, schema: { type: string } }
+        - { name: min_results, in: query, schema: { type: integer, default: 3 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    archer_id: { type: integer }
+                    archer_name: { type: string }
+                    club: { type: string, nullable: true }
+                    category: { type: string }
+                    distance: { type: string }
+                    prev_year: { type: string }
+                    prev_avg: { type: number }
+                    prev_competitions: { type: integer }
+                    last_year: { type: string }
+                    last_avg: { type: number }
+                    last_competitions: { type: integer }
+                    improvement: { type: number }
+                    improvement_pct: { type: number, nullable: true }
+
   /api/events:
     get:
       tags: [results]
