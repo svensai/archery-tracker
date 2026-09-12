@@ -37,7 +37,7 @@ from src.database import (
     get_top_archers, get_flagged_results, get_active_archers_per_year,
     get_class_report, get_improving_archers,
 )
-from src.scraper import parse_result_html, parse_html_file, get_category_description
+from src.scraper import parse_result_html, parse_html_file, get_category_description, normalize_distance
 from src.backup import create_backup, list_backups, restore_backup
 
 app = Flask(__name__,
@@ -517,7 +517,11 @@ def api_class_report():
     distance = request.args.get('distance') or None
     date_from = request.args.get('date_from') or None
     date_to = request.args.get('date_to') or None
-    return jsonify(get_class_report(category, distance, date_from, date_to))
+    rows = get_class_report(category, distance, date_from, date_to)
+    for row in rows:
+        row['category_label'] = get_category_description(row['category'])
+        row['distance_label'] = normalize_distance(row['distance'])
+    return jsonify(rows)
 
 
 @app.route('/api/upcoming-archers', methods=['GET'])
@@ -534,7 +538,11 @@ def api_upcoming_archers():
     distance = request.args.get('distance') or None
     min_results = request.args.get('min_results', 3, type=int)
     limit = request.args.get('limit', 20, type=int)
-    return jsonify(get_improving_archers(category, distance, min_results, limit))
+    rows = get_improving_archers(category, distance, min_results, limit)
+    for row in rows:
+        row['category_label'] = get_category_description(row['category'])
+        row['distance_label'] = normalize_distance(row['distance'])
+    return jsonify(rows)
 
 
 # ==================== Sync API Endpoints ====================

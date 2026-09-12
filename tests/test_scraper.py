@@ -139,6 +139,33 @@ class TestGetCategoryDescription:
         desc = get_category_description('ZZ')
         assert 'ZZ' in desc
 
+    def test_decodes_skill_class(self):
+        assert get_category_description('T1') == 'Traditional Class 1'
+        assert get_category_description('B3') == 'Barebow Class 3'
+
+    def test_decodes_gendered_class_by_bow_type(self):
+        assert get_category_description('BH') == 'Barebow Men'
+        assert get_category_description('BD') == 'Barebow Women'
+        assert get_category_description('LBH') == 'Longbow Men'
+
+    def test_decodes_50plus(self):
+        assert get_category_description('CH5') == 'Compound Men 50+'
+        assert get_category_description('RH5') == 'Recurve Men 50+'
+
+    def test_decodes_age_class_without_gender(self):
+        assert get_category_description('B40') == 'Barebow 40+'
+        assert get_category_description('R60') == 'Recurve 60+'
+
+    def test_decodes_junior_class(self):
+        assert get_category_description('RDU18') == 'Recurve Women U18'
+        assert get_category_description('RHU16') == 'Recurve Men U16'
+
+    def test_unrecognised_recruit_and_para_codes_pass_through(self):
+        # These exist in real data but the code scheme isn't verified —
+        # must never be guessed at, only passed through unchanged.
+        for code in ('VI1', 'RRG', 'BHi', 'OC1', 'BU1'):
+            assert get_category_description(code) == code
+
 
 class TestNormalizeDistance:
     def test_18m_maps_to_indoor(self):
@@ -151,3 +178,11 @@ class TestNormalizeDistance:
     def test_unknown_distance_passthrough(self):
         # Unknown distances are returned unchanged
         assert normalize_distance('60 m') == '60 m'
+
+    def test_similar_but_different_formats_stay_distinct(self):
+        # '2 x 720 runde' is two 720-rounds shot back to back — a different
+        # score scale, not a formatting variant of '720-runde'. Same for a
+        # half 1440. These must never collapse to the same label.
+        assert normalize_distance('720-runde') != normalize_distance('2 x 720 runde')
+        assert normalize_distance('1440-runde') != normalize_distance('1/2 1440-runde')
+        assert normalize_distance('18 m') != normalize_distance('18 m (30 piler)')

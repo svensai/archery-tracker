@@ -970,6 +970,72 @@
                     </div>
                 </div>
 
+                <!-- Class-level report -->
+                <div class="card" id="class-report-section">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--slate-100);padding-bottom:10px;">
+                        <h2 style="margin:0;border:none;padding:0;">Klassenivå</h2>
+                    </div>
+                    <div class="topp-n-row" style="margin-bottom:12px;">
+                        <select id="class-report-category" onchange="loadClassReport()">
+                            <option value="">Alle klasser</option>
+                        </select>
+                        <select id="class-report-distance" onchange="loadClassReport()">
+                            <option value="">Alle distanser</option>
+                        </select>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="results-table" id="class-report-table">
+                            <thead>
+                                <tr>
+                                    <th>Klasse</th>
+                                    <th>Distanse</th>
+                                    <th>År</th>
+                                    <th>Skyttere</th>
+                                    <th>Snitt</th>
+                                    <th>Median</th>
+                                    <th>Beste</th>
+                                </tr>
+                            </thead>
+                            <tbody id="class-report-body">
+                                <tr><td colspan="7" class="loading">Velg filter for å se klassenivå</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Upcoming / improving archers -->
+                <div class="card" id="upcoming-archers-section">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--slate-100);padding-bottom:10px;">
+                        <h2 style="margin:0;border:none;padding:0;">Skyttere i fremgang</h2>
+                    </div>
+                    <div class="topp-n-row" style="margin-bottom:12px;">
+                        <select id="upcoming-category" onchange="loadUpcomingArchers()">
+                            <option value="">Alle klasser</option>
+                        </select>
+                        <select id="upcoming-distance" onchange="loadUpcomingArchers()">
+                            <option value="">Alle distanser</option>
+                        </select>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="results-table" id="upcoming-archers-table">
+                            <thead>
+                                <tr>
+                                    <th>Skytter</th>
+                                    <th>Klubb</th>
+                                    <th>Klasse</th>
+                                    <th>Distanse</th>
+                                    <th>Forrige sesong</th>
+                                    <th>Siste sesong</th>
+                                    <th>Fremgang</th>
+                                </tr>
+                            </thead>
+                            <tbody id="upcoming-archers-body">
+                                <tr><td colspan="7" class="loading">Laster…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Results Table -->
                 <div class="card" id="results-section">
                     <h2>Resultater</h2>
@@ -1324,6 +1390,8 @@
             loadCompetitions();
             loadGroups();
             loadActivityChart();
+            loadClassReport();
+            loadUpcomingArchers();
 
             // The file-import UI is not present on this page; guard so a
             // missing element can't crash app bootstrap (a crash here used to
@@ -1544,6 +1612,12 @@
                 document.getElementById('topp-n-category').innerHTML =
                     '<option value="">Alle klasser</option>' +
                     categories.map(c => `<option value="${c.code}">${c.code} - ${c.description}</option>`).join('');
+                document.getElementById('class-report-category').innerHTML =
+                    '<option value="">Alle klasser</option>' +
+                    categories.map(c => `<option value="${c.code}">${c.code} - ${c.description}</option>`).join('');
+                document.getElementById('upcoming-category').innerHTML =
+                    '<option value="">Alle klasser</option>' +
+                    categories.map(c => `<option value="${c.code}">${c.code} - ${c.description}</option>`).join('');
 
                 // Populate activity category list
                 _allActivityCategories = categories.map(c => c.code);
@@ -1557,6 +1631,12 @@
                     distances.map(d => `<option value="${d}">${d}</option>`).join('');
                 document.getElementById('filter-distance').innerHTML = distOptions;
                 document.getElementById('topp-n-distance').innerHTML =
+                    '<option value="">Alle distanser</option>' +
+                    distances.map(d => `<option value="${d}">${d}</option>`).join('');
+                document.getElementById('class-report-distance').innerHTML =
+                    '<option value="">Alle distanser</option>' +
+                    distances.map(d => `<option value="${d}">${d}</option>`).join('');
+                document.getElementById('upcoming-distance').innerHTML =
                     '<option value="">Alle distanser</option>' +
                     distances.map(d => `<option value="${d}">${d}</option>`).join('');
             } catch (error) {
@@ -2152,6 +2232,80 @@
             const open = panel.style.display === 'none';
             panel.style.display = open ? '' : 'none';
             btn.textContent = open ? 'Velg klasser ▴' : 'Velg klasser ▾';
+        }
+
+        // ==================== Class-level report ====================
+        async function loadClassReport() {
+            const category = document.getElementById('class-report-category').value;
+            const distance = document.getElementById('class-report-distance').value;
+            const body = document.getElementById('class-report-body');
+            let url = '/api/class-report?';
+            if (category) url += `category=${encodeURIComponent(category)}&`;
+            if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+
+            let rows;
+            try {
+                rows = await (await fetch(url)).json();
+            } catch (e) {
+                body.innerHTML = '<tr><td colspan="7" style="color:#ff6464">Feil ved lasting.</td></tr>';
+                return;
+            }
+
+            if (rows.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" class="loading">Ingen data for valgt filter</td></tr>';
+                return;
+            }
+
+            rows.sort((a, b) => b.year.localeCompare(a.year));
+            body.innerHTML = rows.map(r => `
+                <tr>
+                    <td>${r.category_label} <span style="color:var(--slate-400)">(${r.category})</span></td>
+                    <td>${r.distance_label}</td>
+                    <td>${r.year}</td>
+                    <td>${r.archers}</td>
+                    <td>${r.avg_score}</td>
+                    <td>${r.median_score}</td>
+                    <td>${r.best_score}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== Upcoming / improving archers ====================
+        async function loadUpcomingArchers() {
+            const category = document.getElementById('upcoming-category').value;
+            const distance = document.getElementById('upcoming-distance').value;
+            const body = document.getElementById('upcoming-archers-body');
+            let url = '/api/upcoming-archers?';
+            if (category) url += `category=${encodeURIComponent(category)}&`;
+            if (distance) url += `distance=${encodeURIComponent(distance)}&`;
+
+            let rows;
+            try {
+                rows = await (await fetch(url)).json();
+            } catch (e) {
+                body.innerHTML = '<tr><td colspan="7" style="color:#ff6464">Feil ved lasting.</td></tr>';
+                return;
+            }
+
+            if (rows.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" class="loading">Ingen skyttere med fremgang for valgt filter</td></tr>';
+                return;
+            }
+
+            body.innerHTML = rows.map(r => {
+                const sign = r.improvement > 0 ? '+' : '';
+                const color = r.improvement > 0 ? 'var(--green-600, #16a34a)' : 'var(--slate-500)';
+                return `
+                <tr>
+                    <td>${r.archer_name}</td>
+                    <td>${r.club || '—'}</td>
+                    <td>${r.category_label} <span style="color:var(--slate-400)">(${r.category})</span></td>
+                    <td>${r.distance_label}</td>
+                    <td>${r.prev_year}: ${r.prev_avg} (${r.prev_competitions} start)</td>
+                    <td>${r.last_year}: ${r.last_avg} (${r.last_competitions} start)</td>
+                    <td style="color:${color};font-weight:600">${sign}${r.improvement}${r.improvement_pct != null ? ` (${sign}${r.improvement_pct}%)` : ''}</td>
+                </tr>
+            `; }).join('');
         }
 
         async function loadCompetitions() {

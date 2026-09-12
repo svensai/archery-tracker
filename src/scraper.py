@@ -215,22 +215,40 @@ def parse_html_file(file_path: str) -> List[Dict[str, Any]]:
     return parse_result_html(content)
 
 
-# Distance normalization for better grouping
+# Display labels for distance/round codes. These are cosmetic only — each
+# raw value keeps its own distinct label (e.g. "720-runde" and "2 x 720
+# runde" are NOT the same score scale, since the latter is two rounds shot
+# back to back, so they must stay separate groups in any report).
 DISTANCE_NORMALIZATIONS = {
     '18 m': '18m Indoor',
     '18 m (30 piler)': '18m Indoor (30 arrows)',
     '25 m': '25m Indoor',
     '720-runde': '720 Round (70m)',
+    '2 x 720 runde': '2 x 720 Round (2x70m)',
     'Norsk kortrunde': 'Norwegian Short Round',
+    'Norgesrunde': 'Norway Round',
+    '3D-stevne': '3D Round',
+    'Skandiarunde': 'Skandia Round',
+    '1440-runde': '1440 Round',
+    '1/2 1440-runde': '1440 Round (half)',
+    'Felt oppmålt': 'Field (measured)',
+    'Felt uoppmålt': 'Field (unmeasured)',
+    'Felt oppmålt/uoppmålt': 'Field (measured/unmeasured)',
+    '120 p. 25/18 m': '120pt 25/18m Round',
 }
 
 
 def normalize_distance(distance: str) -> str:
-    """Normalize distance strings for consistent grouping."""
+    """Human-readable label for a distance/round code. Does not merge
+    different formats — only relabels for display (see module docstring
+    on DISTANCE_NORMALIZATIONS for why 720-runde and 2 x 720 runde etc.
+    must never be grouped together)."""
     return DISTANCE_NORMALIZATIONS.get(distance, distance)
 
 
-# Category descriptions
+# Category descriptions — literal overrides for the original 8 codes,
+# preserved exactly as first shipped (e.g. RH/CH carry a "Senior" qualifier
+# that newly-decoded H/D codes below deliberately don't, see _decode below).
 CATEGORY_DESCRIPTIONS = {
     'C1': 'Compound Men',
     'CH': 'Compound Men Senior',
@@ -242,10 +260,62 @@ CATEGORY_DESCRIPTIONS = {
     'R2': 'Recurve Women',
 }
 
+# Bow-type prefixes, longest first so 'LB' is checked before the unrelated
+# single-letter 'B' (Barebow) and 'L' is never used alone.
+_BOW_TYPE_PREFIXES = [
+    ('LB', 'Longbow'),
+    ('C', 'Compound'),
+    ('R', 'Recurve'),
+    ('B', 'Barebow'),
+    ('T', 'Traditional'),
+]
+
+# Suffix grammar confirmed by the club (see CLAUDE.md history): a plain
+# 1-5 is a skill class (1 = highest/elite, men; 2 = elite, women; 3-5 =
+# lower classes, unisex); H/D is a men's/women's class with no class
+# number; H5/D5 is the 50+ class (the only age variant on that suffix);
+# bare 40/60 is an age class not split by gender; HU/DU + 16/18/21 is a
+# junior class. Anything else (recruit/para codes like VI1, RRG, BHi,
+# BU1u, OC1, ...) doesn't match and is left as the raw code — those are
+# real but unverified, low-volume categories, not a parsing gap.
+_SUFFIX_PATTERN = re.compile(
+    r'^(?:(?P<class_num>[1-5])'
+    r'|(?P<jgender>[HD])U(?P<junior_age>16|18|21)'
+    r'|(?P<gender>[HD])(?P<age5>5)?'
+    r'|(?P<age>40|60))$'
+)
+
+
+def _decode_category(category: str) -> Optional[str]:
+    """Best-effort decode of a {bow_type}{suffix} category code. Returns
+    None if the code doesn't match the known grammar."""
+    for prefix, bow_name in _BOW_TYPE_PREFIXES:
+        if not category.startswith(prefix):
+            continue
+        match = _SUFFIX_PATTERN.match(category[len(prefix):])
+        if not match:
+            return None
+        if match.group('class_num'):
+            return f'{bow_name} Class {match.group("class_num")}'
+        if match.group('jgender'):
+            gender_word = 'Men' if match.group('jgender') == 'H' else 'Women'
+            return f'{bow_name} {gender_word} U{match.group("junior_age")}'
+        if match.group('gender'):
+            gender_word = 'Men' if match.group('gender') == 'H' else 'Women'
+            if match.group('age5'):
+                return f'{bow_name} {gender_word} 50+'
+            return f'{bow_name} {gender_word}'
+        if match.group('age'):
+            return f'{bow_name} {match.group("age")}+'
+        return None
+    return None
+
 
 def get_category_description(category: str) -> str:
     """Get human-readable description for a category code."""
-    return CATEGORY_DESCRIPTIONS.get(category, category)
+    if category in CATEGORY_DESCRIPTIONS:
+        return CATEGORY_DESCRIPTIONS[category]
+    return _decode_category(category) or category
 
 
 def parse_archer_page(html_content: str, external_id: int) -> Optional[ArcherInfo]:

@@ -227,6 +227,34 @@ class TestYearlyChartEndpoints:
         assert len(body['datasets']) == 1
         assert body['datasets'][0]['label'] == 'YearlyArcher'
 
+    def test_yearly_compare_multi_archer_different_years(self, flask_client):
+        """Two archers active in different (partially overlapping) year ranges:
+        the merged years list must be the union, and each archer's data must
+        have None in years where they have no results."""
+        from src.database import add_archer, add_event, add_result
+        early = add_archer('ArcherEarly')   # active 2023-2024
+        late = add_archer('ArcherLate')     # active 2024-2025
+        ev1 = add_event('MYE1', 'Ev2023')
+        ev2 = add_event('MYE2', 'Ev2024a')
+        ev3 = add_event('MYE3', 'Ev2024b')
+        ev4 = add_event('MYE4', 'Ev2025')
+        add_result(archer_id=early, event_id=ev1, date='2023-01-10',
+                   distance='18 m', category='C1', score=500)
+        add_result(archer_id=early, event_id=ev2, date='2024-01-10',
+                   distance='18 m', category='C1', score=520)
+        add_result(archer_id=late, event_id=ev3, date='2024-01-10',
+                   distance='18 m', category='C1', score=600)
+        add_result(archer_id=late, event_id=ev4, date='2025-01-10',
+                   distance='18 m', category='C1', score=620)
+
+        body = _json(flask_client.get(
+            f'/api/chart/yearly/compare?archer_ids={early}&archer_ids={late}'))
+        assert body['datasets'][0]['years'] == ['2023', '2024', '2025']
+        ds_early = next(d for d in body['datasets'] if d['label'] == 'ArcherEarly')
+        ds_late = next(d for d in body['datasets'] if d['label'] == 'ArcherLate')
+        assert ds_early['data'] == [500.0, 520.0, None]
+        assert ds_late['data'] == [None, 600.0, 620.0]
+
 
 # ---------------------------------------------------------------------------
 # /api/sync/*
@@ -613,6 +641,31 @@ class TestClassReport:
         rows = _json(flask_client.get('/api/class-report?category=C1'))
         assert rows == []
 
+    def test_rows_include_readable_labels(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/class-report?distance=18 m'))
+        r24 = next(r for r in rows if r['year'] == '2024')
+        assert r24['category_label'] == 'Recurve Men'
+        assert r24['distance_label'] == '18m Indoor'
+
+    def test_median_odd_count(self, flask_client):
+        """3 archers in one group exercises the avgs[mid] branch, not the
+        even-count average-of-two-neighbours branch."""
+        from src.database import add_archer, add_event, add_result
+        a1 = add_archer('MedA')
+        a2 = add_archer('MedB')
+        a3 = add_archer('MedC')
+        ev = add_event('MED24', 'MedianStevne')
+        add_result(archer_id=a1, event_id=ev, date='2024-03-01',
+                   distance='18 m', category='R1', score=500)
+        add_result(archer_id=a2, event_id=ev, date='2024-03-01',
+                   distance='18 m', category='R1', score=540)
+        add_result(archer_id=a3, event_id=ev, date='2024-03-01',
+                   distance='18 m', category='R1', score=560)
+        rows = _json(flask_client.get('/api/class-report?category=R1&distance=18 m'))
+        r24 = next(r for r in rows if r['year'] == '2024')
+        assert r24['median_score'] == 540.0
+
 
 class TestUpcomingArchers:
     def _seed(self, flask_client):
@@ -665,3 +718,9 @@ class TestUpcomingArchers:
         self._seed(flask_client)
         rows = _json(flask_client.get('/api/upcoming-archers?category=C1'))
         assert rows == []
+
+    def test_rows_include_readable_labels(self, flask_client):
+        self._seed(flask_client)
+        rows = _json(flask_client.get('/api/upcoming-archers'))
+        assert rows[0]['category_label'] == 'Recurve Men'
+        assert rows[0]['distance_label'] == '18m Indoor'
