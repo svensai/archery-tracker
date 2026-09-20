@@ -417,6 +417,10 @@
             background: var(--blue-50);
         }
 
+        .results-table tr.clickable-row {
+            cursor: pointer;
+        }
+
         /* Event detail view */
         .event-view-subhead {
             font-size: 12px;
@@ -1045,9 +1049,9 @@
                         <table class="results-table" id="class-report-table">
                             <thead>
                                 <tr>
+                                    <th>År</th>
                                     <th>Klasse</th>
                                     <th>Distanse</th>
-                                    <th>År</th>
                                     <th>Skyttere</th>
                                     <th>Snitt</th>
                                     <th>Median</th>
@@ -1170,6 +1174,35 @@
                 </table>
             </div>
         </div>
+
+        <!-- Class+year detail view (from a Klassenivå row) -->
+        <div class="card" id="class-year-view-section" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid var(--slate-100);padding-bottom:10px;">
+                <button class="btn-secondary" style="width:auto;font-size:13px;padding:7px 14px;" onclick="closeClassYearView()">← Tilbake</button>
+                <span id="class-year-view-count" style="font-size:12px;color:var(--slate-400);"></span>
+            </div>
+            <h2 id="class-year-view-title" style="border:none;padding:0;margin-bottom:2px;text-transform:none;letter-spacing:normal;font-size:1.2rem;color:var(--slate-900);"></h2>
+            <p id="class-year-view-subtitle" style="color:var(--slate-500);font-size:13px;margin-bottom:18px;"></p>
+
+            <div class="stats-grid" id="class-year-view-totals" style="margin-bottom:22px;"></div>
+
+            <h3 class="event-view-subhead">Alle resultater</h3>
+            <div style="overflow-x:auto;">
+                <table class="results-table sortable" id="class-year-view-results-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="date" onclick="sortClassYearResultsBy('date')">Dato</th>
+                            <th data-sort="event_name" onclick="sortClassYearResultsBy('event_name')">Stevne</th>
+                            <th data-sort="archer_name" onclick="sortClassYearResultsBy('archer_name')">Skytter</th>
+                            <th data-sort="score" onclick="sortClassYearResultsBy('score')">Score</th>
+                            <th data-sort="score_per_60" onclick="sortClassYearResultsBy('score_per_60')">Per 60</th>
+                            <th data-sort="placement" onclick="sortClassYearResultsBy('placement')">Plass</th>
+                        </tr>
+                    </thead>
+                    <tbody id="class-year-view-results-body"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1191,6 +1224,9 @@
             closeSidebar();
             if (document.getElementById('event-view-section').style.display !== 'none') {
                 closeEventView();
+            }
+            if (document.getElementById('class-year-view-section').style.display !== 'none') {
+                closeClassYearView();
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -2604,10 +2640,14 @@
 
             rows.sort((a, b) => b.year.localeCompare(a.year));
             body.innerHTML = rows.map(r => `
-                <tr>
+                <tr class="clickable-row" onclick="openClassYearView(
+                    '${r.category}', '${escapeHtml(r.category_label).replace(/'/g,"\\'")}',
+                    '${r.distance.replace(/'/g,"\\'")}', '${escapeHtml(r.distance_label).replace(/'/g,"\\'")}',
+                    '${r.year}', ${r.archers}, ${r.avg_score}, ${r.median_score}, ${r.best_score}
+                )">
+                    <td>${r.year}</td>
                     <td>${r.category_label} <span style="color:var(--slate-400)">(${r.category})</span></td>
                     <td>${r.distance_label}</td>
-                    <td>${r.year}</td>
                     <td>${r.archers}</td>
                     <td>${r.avg_score}</td>
                     <td>${r.median_score}</td>
@@ -2708,6 +2748,7 @@
         // ── Event detail view (dedicated page-like view for one competition) ──
 
         async function openEventView(eventDbId, eventName, eventDate) {
+            document.getElementById('class-year-view-section').style.display = 'none';
             document.getElementById('chart-section').style.display = 'none';
             document.querySelector('.main-content').style.display = 'none';
             const section = document.getElementById('event-view-section');
@@ -2882,6 +2923,111 @@
             return String(str)
                 .replace(/&/g,'&amp;').replace(/</g,'&lt;')
                 .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ── Class+year detail view (from a Klassenivå row) ─────────────────────
+
+        let classYearViewResults = [];
+        let classYearViewSort = { field: 'score', dir: 'desc' };
+
+        async function openClassYearView(category, categoryLabel, distance, distanceLabel, year, archers, avgScore, medianScore, bestScore) {
+            document.getElementById('event-view-section').style.display = 'none';
+            document.getElementById('chart-section').style.display = 'none';
+            document.querySelector('.main-content').style.display = 'none';
+            const section = document.getElementById('class-year-view-section');
+            section.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            document.getElementById('class-year-view-title').textContent = `${categoryLabel} (${category}) — ${year}`;
+            document.getElementById('class-year-view-subtitle').textContent = distanceLabel;
+
+            document.getElementById('class-year-view-totals').innerHTML = `
+                <div class="stat-card"><div class="value">${archers}</div><div class="label">Skyttere</div></div>
+                <div class="stat-card"><div class="value">${avgScore}</div><div class="label">Snitt</div></div>
+                <div class="stat-card"><div class="value">${medianScore}</div><div class="label">Median</div></div>
+                <div class="stat-card"><div class="value">${bestScore}</div><div class="label">Beste</div></div>
+            `;
+            document.getElementById('class-year-view-results-body').innerHTML =
+                '<tr><td colspan="6" class="loading">Laster…</td></tr>';
+
+            const params = new URLSearchParams({
+                category, distance,
+                date_from: `${year}-01-01`,
+                date_to: `${year}-12-31`,
+            });
+
+            try {
+                const resp = await fetch('/api/results?' + params.toString());
+                classYearViewResults = resp.ok ? await resp.json() : [];
+            } catch (e) {
+                console.error('Error loading class-year results:', e);
+                classYearViewResults = [];
+            }
+
+            document.getElementById('class-year-view-count').textContent = classYearViewResults.length
+                ? `${classYearViewResults.length} resultat${classYearViewResults.length !== 1 ? 'er' : ''}`
+                : '';
+
+            classYearViewSort = { field: 'score', dir: 'desc' };
+            renderClassYearResultsTable();
+        }
+
+        function closeClassYearView() {
+            document.getElementById('class-year-view-section').style.display = 'none';
+            document.getElementById('chart-section').style.display = '';
+            document.querySelector('.main-content').style.display = '';
+        }
+
+        function sortClassYearResultsBy(field) {
+            if (classYearViewSort.field === field) {
+                classYearViewSort.dir = classYearViewSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                classYearViewSort = { field, dir: (field === 'score' || field === 'score_per_60') ? 'desc' : 'asc' };
+            }
+            renderClassYearResultsTable();
+        }
+
+        function renderClassYearResultsTable() {
+            const tbody = document.getElementById('class-year-view-results-body');
+            let rows = classYearViewResults.slice();
+
+            const { field, dir } = classYearViewSort;
+            const mul = dir === 'asc' ? 1 : -1;
+            rows.sort((a, b) => {
+                let av = a[field], bv = b[field];
+                const aMissing = av === null || av === undefined;
+                const bMissing = bv === null || bv === undefined;
+                if (aMissing && bMissing) return 0;
+                if (aMissing) return 1;
+                if (bMissing) return -1;
+                if (typeof av === 'string') av = av.toLowerCase();
+                if (typeof bv === 'string') bv = bv.toLowerCase();
+                if (av < bv) return -1 * mul;
+                if (av > bv) return 1 * mul;
+                return 0;
+            });
+
+            document.querySelectorAll('#class-year-view-results-table th[data-sort]').forEach(th => {
+                th.classList.toggle('sorted-asc', th.dataset.sort === field && dir === 'asc');
+                th.classList.toggle('sorted-desc', th.dataset.sort === field && dir === 'desc');
+            });
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">Ingen resultater.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => {
+                const isSelected = selectedArcherIds.has(r.archer_id);
+                return `<tr class="${isSelected ? 'highlight-archer' : ''}">
+                    <td>${formatDate(r.date)}</td>
+                    <td>${escapeHtml(r.event_name)}</td>
+                    <td>${escapeHtml(r.archer_name)}${isSelected ? ' ★' : ''}</td>
+                    <td><strong>${r.score}</strong></td>
+                    <td style="color:#64748b">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
+                    <td>${r.placement ? getPlacementBadge(r.placement) : '—'}</td>
+                </tr>`;
+            }).join('');
         }
     </script>
 </body>
