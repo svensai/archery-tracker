@@ -681,7 +681,9 @@
             top: 0;
             z-index: 100;
         }
-        #top-nav .nav-left { color: var(--blue-600); font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
+        #top-nav .nav-left { color: var(--blue-600); font-weight: 700; font-size: 15px; letter-spacing: -0.3px; display: flex; align-items: center; }
+        #top-nav .nav-logo { cursor: pointer; }
+        #top-nav .nav-logo:hover { text-decoration: underline; }
         #top-nav .nav-right { display:flex; align-items:center; gap:14px; }
         #top-nav .nav-user { color: var(--slate-500); }
         #top-nav .nav-user strong { color: var(--slate-900); }
@@ -810,7 +812,7 @@
         <div class="nav-left">
             <button id="sidebar-toggle" class="sidebar-toggle-btn" onclick="toggleSidebar()"
                     title="Meny" aria-label="Åpne meny" aria-expanded="false">☰</button>
-            Archery Tracker
+            <span class="nav-logo" onclick="goToMainMenu()" title="Tilbake til hovedmenyen">Archery Tracker</span>
         </div>
         <div class="nav-right">
             <span class="nav-user">Innlogget som <strong id="nav-username"></strong></span>
@@ -1169,6 +1171,15 @@
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('sidebar-backdrop').classList.remove('open');
             document.getElementById('sidebar-toggle').setAttribute('aria-expanded', 'false');
+        }
+
+        // Logo click: back to the main dashboard from anywhere (event view, sidebar open, …)
+        function goToMainMenu() {
+            closeSidebar();
+            if (document.getElementById('event-view-section').style.display !== 'none') {
+                closeEventView();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Global state
