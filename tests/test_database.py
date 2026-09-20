@@ -13,7 +13,7 @@ from src.database import (
     upsert_sync_status, get_sync_status, get_all_sync_status,
     get_max_external_id, mark_archer_not_found,
     log_sync_error, get_unresolved_errors, resolve_error,
-    start_sync_log, update_sync_log, get_recent_sync_logs,
+    start_sync_log, update_sync_log, get_recent_sync_logs, get_current_sync_log,
     get_sync_stats,
     score_per_60, ARROWS_BY_DISTANCE,
 )
@@ -463,3 +463,23 @@ class TestSyncLog:
         stats = get_sync_stats()
         assert 'total_archers_found' in stats
         assert stats['total_archers_found'] >= 1
+
+    def test_log_stores_total_and_progress(self, tmp_db):
+        log_id = start_sync_log('historical_sync', total=42)
+        update_sync_log(log_id, archers_processed=10, results_added=5,
+                        errors_count=0, status='running')
+        current = get_current_sync_log()
+        assert current['id'] == log_id
+        assert current['total'] == 42
+        assert current['archers_processed'] == 10
+        assert current['completed_at'] is None
+
+    def test_stopped_job_gets_completed_at(self, tmp_db):
+        log_id = start_sync_log('daily_sync', total=5)
+        update_sync_log(log_id, archers_processed=2, status='stopped')
+        current = get_current_sync_log()
+        assert current['status'] == 'stopped'
+        assert current['completed_at'] is not None
+
+    def test_get_current_sync_log_empty(self, tmp_db):
+        assert get_current_sync_log() is None

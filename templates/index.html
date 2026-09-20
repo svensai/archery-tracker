@@ -936,6 +936,19 @@
                         <button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="createGroup()">+</button>
                     </div>
                 </div>
+
+                <!-- Sync -->
+                <div class="card" id="sync-card">
+                    <h2>🔄 Synkronisering</h2>
+                    <div id="sync-status-box">
+                        <p style="color:#888;font-size:13px;">Laster status…</p>
+                    </div>
+                    <div class="topp-n-row" style="margin-top:10px;">
+                        <button class="btn btn-primary" style="flex:1;font-size:12px;padding:8px;" onclick="startSync('daily')">Start daglig sync</button>
+                        <button class="btn btn-primary" style="flex:1;font-size:12px;padding:8px;" onclick="startSync('historical')">Start historisk sync</button>
+                    </div>
+                    <button class="btn btn-secondary" id="sync-stop-btn" style="width:100%;margin-top:8px;font-size:12px;padding:7px;display:none;" onclick="stopSync()">Stopp synkronisering</button>
+                </div>
     </div>
 
     <div class="container">
@@ -1180,6 +1193,126 @@
                 closeEventView();
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ── Sync panel ───────────────────────────────────────────────────────
+
+        let _syncPollTimer = null;
+        const SYNC_JOB_LABELS = {
+            daily_sync: 'Daglig sync',
+            historical_sync: 'Historisk sync',
+            discovery: 'Oppdagelse av nye skyttere',
+        };
+        const SYNC_STATUS_LABELS = {
+            completed: 'Fullført',
+            stopped: 'Stoppet',
+            failed: 'Feilet',
+        };
+
+        function fmtSyncDateTime(sqlDateStr) {
+            if (!sqlDateStr) return '—';
+            const d = new Date(sqlDateStr.replace(' ', 'T'));
+            if (isNaN(d)) return '—';
+            return d.toLocaleString('nb-NO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+
+        async function startSync(jobType) {
+            try {
+                const resp = await fetch('/api/sync/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_type: jobType }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    alert(data.error || 'Kunne ikke starte synkronisering.');
+                    return;
+                }
+                pollSyncStatus();
+            } catch (e) {
+                console.error('Error starting sync:', e);
+                alert('Kunne ikke starte synkronisering.');
+            }
+        }
+
+        async function stopSync() {
+            try {
+                await fetch('/api/sync/stop', { method: 'POST' });
+                pollSyncStatus();
+            } catch (e) {
+                console.error('Error stopping sync:', e);
+            }
+        }
+
+        function renderSyncStatus(log) {
+            const box = document.getElementById('sync-status-box');
+            const stopBtn = document.getElementById('sync-stop-btn');
+
+            if (!log) {
+                box.innerHTML = '<p style="color:#888;font-size:13px;">Ingen synkronisering kjørt ennå.</p>';
+                stopBtn.style.display = 'none';
+                return;
+            }
+
+            const jobLabel = SYNC_JOB_LABELS[log.job_type] || log.job_type;
+            const statusLabel = log.is_running ? 'Pågår' : (SYNC_STATUS_LABELS[log.status] || log.status);
+
+            const total = log.total;
+            const processed = log.archers_processed || 0;
+            const pct = total
+                ? Math.min(100, Math.round((processed / total) * 100))
+                : (log.status === 'completed' ? 100 : null);
+
+            let timeLine;
+            if (!log.is_running) {
+                timeLine = `Avsluttet: <strong>${fmtSyncDateTime(log.completed_at)}</strong>`;
+            } else if (total && processed > 0) {
+                const startMs = new Date(log.started_at.replace(' ', 'T')).getTime();
+                const elapsedMs = Date.now() - startMs;
+                const rate = processed / elapsedMs; // archers per ms
+                const remaining = Math.max(0, total - processed);
+                const etaMs = rate > 0 ? remaining / rate : null;
+                timeLine = (etaMs != null && isFinite(etaMs))
+                    ? `Antatt ferdig: <strong>${fmtSyncDateTime(new Date(Date.now() + etaMs).toISOString())}</strong>`
+                    : 'Antatt ferdig: <strong>beregner…</strong>';
+            } else {
+                timeLine = 'Antatt ferdig: <strong>beregner…</strong>';
+            }
+
+            box.innerHTML = `
+                <div style="font-size:13px;color:var(--slate-700);margin-bottom:6px;">
+                    <strong>${jobLabel}</strong> — ${statusLabel}
+                </div>
+                ${pct != null ? `
+                    <div style="background:var(--slate-100);border-radius:6px;height:8px;overflow:hidden;margin-bottom:6px;">
+                        <div style="background:var(--blue-600);height:100%;width:${pct}%;transition:width .4s;"></div>
+                    </div>
+                ` : ''}
+                <div style="font-size:12px;color:var(--slate-500);line-height:1.7;">
+                    <div>${processed}${total ? ' / ' + total : ''} skyttere lest inn${pct != null ? ' (' + pct + ' %)' : ''}</div>
+                    <div>Resultater lagt til: <strong>${log.results_added || 0}</strong></div>
+                    <div>Startet: <strong>${fmtSyncDateTime(log.started_at)}</strong></div>
+                    <div>${timeLine}</div>
+                </div>
+            `;
+
+            stopBtn.style.display = log.can_stop ? 'block' : 'none';
+        }
+
+        async function pollSyncStatus() {
+            try {
+                const resp = await fetch('/api/sync/current');
+                const log = resp.ok ? await resp.json() : null;
+                renderSyncStatus(log);
+            } catch (e) {
+                console.error('Error polling sync status:', e);
+            }
+        }
+
+        function startSyncPolling() {
+            pollSyncStatus();
+            if (_syncPollTimer) clearInterval(_syncPollTimer);
+            _syncPollTimer = setInterval(pollSyncStatus, 60000);
         }
 
         // Global state
@@ -1512,6 +1645,7 @@
             loadActivityChart();
             loadClassReport();
             loadUpcomingArchers();
+            startSyncPolling();
 
             // The file-import UI is not present on this page; guard so a
             // missing element can't crash app bootstrap (a crash here used to

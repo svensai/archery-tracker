@@ -293,6 +293,25 @@ class TestSyncEndpoints:
         resp = flask_client.post('/api/sync/stop')
         assert resp.status_code == 404
 
+    def test_sync_current_empty(self, flask_client):
+        resp = flask_client.get('/api/sync/current')
+        assert resp.status_code == 200
+        assert _json(resp) is None
+
+    def test_sync_current_reflects_latest_log(self, flask_client):
+        from src.database import start_sync_log, update_sync_log
+        log_id = start_sync_log('historical_sync', total=10)
+        update_sync_log(log_id, archers_processed=3, status='running')
+
+        resp = flask_client.get('/api/sync/current')
+        body = _json(resp)
+        assert body['id'] == log_id
+        assert body['total'] == 10
+        assert body['archers_processed'] == 3
+        assert body['is_running'] is True
+        # No worker thread in this process owns the job, so it can't be stopped
+        assert body['can_stop'] is False
+
 
 # ---------------------------------------------------------------------------
 # /api/archers/<id>/results — date filtering

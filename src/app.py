@@ -32,7 +32,7 @@ from src.database import (
     get_categories, get_distances, get_years, get_archer_stats,
     get_archer_yearly_stats, get_archer_name, get_yearly_stats_bulk,
     get_events_list, get_event_results,
-    get_sync_stats, get_all_sync_status, get_recent_sync_logs,
+    get_sync_stats, get_all_sync_status, get_recent_sync_logs, get_current_sync_log,
     get_unresolved_errors, resolve_error,
     get_top_archers, get_flagged_results, get_active_archers_per_year,
     get_class_report, get_improving_archers,
@@ -691,6 +691,28 @@ def api_sync_running():
     with _sync_lock:
         running = _sync_thread is not None and _sync_thread.is_alive()
     return jsonify({'running': running})
+
+
+@app.route('/api/sync/current', methods=['GET'])
+@login_required
+def api_sync_current():
+    """
+    Most recent sync job (running or finished), with progress info for the UI.
+
+    `is_running` trusts the DB status directly — sync is commonly run as a
+    standalone process (run_sync.py --daemon, per the Makefile), not only
+    via /api/sync/start, so this process's own thread is not a reliable
+    signal for "is a sync actually in progress". `can_stop` is narrower:
+    true only when *this* process's thread owns the running job, since
+    that's the only case /api/sync/stop can actually act on.
+    """
+    log = get_current_sync_log()
+    with _sync_lock:
+        thread_alive = _sync_thread is not None and _sync_thread.is_alive()
+    if log:
+        log['is_running'] = log['status'] == 'running'
+        log['can_stop'] = thread_alive
+    return jsonify(log)
 
 
 # ==================== Events / Competitions API ====================

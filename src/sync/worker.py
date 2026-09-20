@@ -97,11 +97,11 @@ class SyncWorker:
             Dictionary with discovery statistics
         """
         end_id = end_id or self.config.max_archer_id
-        
+
         logger.info(f"Starting archer discovery from ID {start_id} to {end_id}")
-        
+
         self._reset_stats()
-        self._current_log_id = start_sync_log('discovery')
+        self._current_log_id = start_sync_log('discovery', total=end_id - start_id + 1)
         
         found_count = 0
         not_found_count = 0
@@ -221,9 +221,9 @@ class SyncWorker:
         
         total = len(archers_to_sync)
         logger.info(f"Starting current season sync for {total} archers")
-        
+
         self._reset_stats()
-        self._current_log_id = start_sync_log('daily_sync')
+        self._current_log_id = start_sync_log('daily_sync', total=total)
         
         try:
             for i, archer_status in enumerate(archers_to_sync):
@@ -335,9 +335,9 @@ class SyncWorker:
         
         total = len(archers_to_sync)
         logger.info(f"Starting historical sync for {total} archers")
-        
+
         self._reset_stats()
-        self._current_log_id = start_sync_log('historical_sync')
+        self._current_log_id = start_sync_log('historical_sync', total=total)
         
         try:
             for i, archer_status in enumerate(archers_to_sync):

@@ -161,15 +161,17 @@ def init_database():
             results_added INTEGER DEFAULT 0,
             errors_count INTEGER DEFAULT 0,
             status TEXT DEFAULT 'running',
-            details TEXT
+            details TEXT,
+            total INTEGER
         )
     ''')
-    
+
     # Migrate existing databases: add columns introduced after initial schema
     _migrations = [
         'ALTER TABLE archers ADD COLUMN external_id INTEGER',
         'ALTER TABLE archers ADD COLUMN club TEXT',
         'ALTER TABLE archers ADD COLUMN club_id INTEGER',
+        'ALTER TABLE sync_log ADD COLUMN total INTEGER',
     ]
     for _sql in _migrations:
         try:
@@ -1172,14 +1174,14 @@ def resolve_error(error_id: int) -> None:
     conn.close()
 
 
-def start_sync_log(job_type: str) -> int:
+def start_sync_log(job_type: str, total: Optional[int] = None) -> int:
     """Start a new sync log entry."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO sync_log (job_type, started_at, status)
-        VALUES (?, ?, 'running')
-    ''', (job_type, datetime.now()))
+        INSERT INTO sync_log (job_type, started_at, status, total)
+        VALUES (?, ?, 'running', ?)
+    ''', (job_type, datetime.now(), total))
     log_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -1197,16 +1199,16 @@ def update_sync_log(
     """Update a sync log entry."""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    completed_at = datetime.now() if status in ('completed', 'failed') else None
-    
+
+    completed_at = datetime.now() if status in ('completed', 'failed', 'stopped') else None
+
     cursor.execute('''
-        UPDATE sync_log 
+        UPDATE sync_log
         SET archers_processed = ?, results_added = ?, errors_count = ?,
             status = ?, completed_at = ?, details = ?
         WHERE id = ?
     ''', (archers_processed, results_added, errors_count, status, completed_at, details, log_id))
-    
+
     conn.commit()
     conn.close()
 
@@ -1216,13 +1218,23 @@ def get_recent_sync_logs(limit: int = 20) -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT * FROM sync_log 
-        ORDER BY started_at DESC 
+        SELECT * FROM sync_log
+        ORDER BY started_at DESC
         LIMIT ?
     ''', (limit,))
     logs = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return logs
+
+
+def get_current_sync_log() -> Optional[Dict[str, Any]]:
+    """Get the most recent sync_log entry, whatever its status."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM sync_log ORDER BY started_at DESC LIMIT 1')
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 
 def get_sync_stats() -> Dict[str, Any]:
