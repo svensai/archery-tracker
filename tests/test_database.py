@@ -7,7 +7,7 @@ import pytest
 from src.database import (
     add_archer, add_event, add_result,
     get_all_archers, get_archer_results, get_all_results,
-    get_categories, get_distances, get_archer_stats,
+    get_categories, get_distances, get_years, get_archer_stats,
     get_archer_yearly_stats,
     add_archer_with_external_id,
     upsert_sync_status, get_sync_status, get_all_sync_status,
@@ -90,6 +90,28 @@ class TestArchers:
         id1 = add_archer_with_external_id(name='Archer X', external_id=42)
         id2 = add_archer_with_external_id(name='Archer X', external_id=42)
         assert id1 == id2
+
+    def test_update_name_collision_does_not_crash_or_reassign(self, tmp_db):
+        """Two different real people can share a name. Updating one archer's
+        name to match a DIFFERENT existing archer must not raise, must not
+        merge their identities, and must not leave the connection locked."""
+        first_id = add_archer_with_external_id(name='Ola Nordmann', external_id=100)
+        second_id = add_archer_with_external_id(name='Kari Nordmann', external_id=200)
+
+        # Re-sync of archer 200 where the site now reports a name that
+        # collides with archer 100's name.
+        result_id = add_archer_with_external_id(
+            name='Ola Nordmann', external_id=200, club='New Club',
+        )
+        assert result_id == second_id
+
+        archers = {a['id']: a for a in get_all_archers()}
+        assert archers[first_id]['name'] == 'Ola Nordmann'
+        assert archers[second_id]['name'] == 'Kari Nordmann'  # not overwritten
+        assert archers[second_id]['club'] == 'New Club'       # other fields still updated
+
+        # Connection must not be left locked for subsequent writes.
+        add_archer('Another Archer After Collision')
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +277,17 @@ class TestResults:
                    distance='18 m', category='C1', score=555)
         distances = get_distances()
         assert '18 m' in distances
+
+    def test_get_years(self, tmp_db):
+        archer_id = add_archer('Archer')
+        ev1 = add_event('S1', 'Ev1')
+        ev2 = add_event('S2', 'Ev2')
+        add_result(archer_id=archer_id, event_id=ev1, date='2024-06-01',
+                   distance='18 m', category='C1', score=500)
+        add_result(archer_id=archer_id, event_id=ev2, date='2026-01-01',
+                   distance='18 m', category='C1', score=555)
+        years = get_years()
+        assert years == [2026, 2024]
 
     def test_archer_stats(self, tmp_db):
         archer_id = add_archer('Archer')

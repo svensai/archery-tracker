@@ -16,7 +16,7 @@ services:
       HTTPS:               ${HTTPS:-false}
       DEBUG:               "false"
     volumes:
-      - archery_data:/app/data        # persists SQLite DB + backups
+      - ./data:/app/data        # bind-mount: same SQLite DB as local dev, not a separate copy
     expose:
       - "8000"
     depends_on:
@@ -54,5 +54,4 @@ services:
       retries: 10
 
 volumes:
-  archery_data:
   postgres_data:

@@ -70,14 +70,7 @@
             font-size: 0.95rem;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 18px;
-        }
-
         @media (max-width: 900px) {
-            .grid { grid-template-columns: 1fr; }
             header h1 { font-size: 1.5rem; }
             .chart-container { height: 280px; }
             .stat-card .value { font-size: 1.4rem; }
@@ -100,6 +93,10 @@
             .results-table td:nth-child(2),
             .results-table th:nth-child(6),
             .results-table td:nth-child(6) { display: none; }
+            /* Event view: keep the archer name (col 2) visible — hiding it
+               there leaves rows with no way to tell whose result it is */
+            #event-view-results-table th:nth-child(2),
+            #event-view-results-table td:nth-child(2) { display: table-cell; }
             .filters select, .filters input[type="date"] { min-width: 0; }
         }
 
@@ -122,11 +119,77 @@
             padding-bottom: 10px;
         }
 
+        /* ── Collapsible sidebar (off-canvas drawer) ── */
+        .sidebar-toggle-btn {
+            background: none;
+            border: 1px solid var(--slate-200);
+            border-radius: var(--radius-sm);
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            color: var(--slate-700);
+            margin-right: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+        .sidebar-toggle-btn:hover { background: var(--slate-50); }
+
+        #sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.4);
+            z-index: 199;
+        }
+        #sidebar-backdrop.open { display: block; }
+
         .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 320px;
+            max-width: 85vw;
+            background: var(--slate-50);
+            border-right: 1px solid var(--slate-200);
+            box-shadow: var(--shadow-md);
+            padding: 16px;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 16px;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            z-index: 200;
         }
+        .sidebar.open { transform: translateX(0); }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--slate-200);
+        }
+        .sidebar-header span {
+            font-weight: 700;
+            color: var(--slate-700);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .sidebar-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: var(--slate-500);
+        }
+        .sidebar-close:hover { color: var(--slate-900); }
 
         .main-content {
             display: flex;
@@ -286,7 +349,7 @@
         /* Chart Container */
         .chart-container {
             position: relative;
-            height: 380px;
+            height: 440px;
             background: var(--white);
             border-radius: var(--radius-sm);
             padding: 12px;
@@ -353,6 +416,26 @@
         .results-table tr:hover td {
             background: var(--blue-50);
         }
+
+        /* Event detail view */
+        .event-view-subhead {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--slate-700);
+            margin-bottom: 10px;
+        }
+
+        .results-table.sortable th[data-sort] {
+            cursor: pointer;
+            user-select: none;
+        }
+        .results-table.sortable th[data-sort]:hover {
+            color: var(--blue-600);
+        }
+        .results-table.sortable th.sorted-asc::after { content: ' \25B2'; }
+        .results-table.sortable th.sorted-desc::after { content: ' \25BC'; }
 
         .placement-badge {
             display: inline-block;
@@ -539,49 +622,7 @@
         .comp-item .comp-meta span { color: var(--slate-400); }
         .comp-item .comp-meta strong { color: var(--slate-600); }
 
-        /* Event detail panel */
-        #event-detail-panel {
-            margin-top: 10px;
-            display: none;
-            background: var(--slate-50);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            border: 1px solid var(--slate-200);
-        }
-
-        #event-detail-panel .event-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--blue-600);
-            margin-bottom: 10px;
-        }
-
-        .event-results-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        .event-results-table th {
-            color: var(--slate-500);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            text-align: left;
-            padding: 8px 10px;
-            border-bottom: 1px solid var(--slate-200);
-            background: var(--white);
-        }
-
-        .event-results-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid var(--slate-100);
-            color: var(--slate-700);
-        }
-
-        .event-results-table tr:hover td { background: var(--blue-50); }
-
-        .event-results-table tr.highlight-archer td {
+        .results-table tr.highlight-archer td {
             background: var(--blue-50);
             font-weight: 600;
             color: var(--blue-700);
@@ -766,7 +807,11 @@
 
     <!-- ── Top navigation bar ── -->
     <div id="top-nav">
-        <div class="nav-left">Archery Tracker</div>
+        <div class="nav-left">
+            <button id="sidebar-toggle" class="sidebar-toggle-btn" onclick="toggleSidebar()"
+                    title="Meny" aria-label="Åpne meny" aria-expanded="false">☰</button>
+            Archery Tracker
+        </div>
         <div class="nav-right">
             <span class="nav-user">Innlogget som <strong id="nav-username"></strong></span>
             <button class="nav-link btn-logout btn" id="nav-admin-btn" style="display:none" onclick="openAdminPanel()">Admin</button>
@@ -791,14 +836,13 @@
         E-post bekreftet! Du kan nå logge inn.
     </div>
 
-    <div class="container">
-        <header>
-            <h1>Archery Tracker</h1>
-            <p>Spor og visualiser resultater fra bueskytingskonkurranser</p>
-        </header>
+    <div id="sidebar-backdrop" onclick="closeSidebar()"></div>
 
-        <div class="grid">
-            <div class="sidebar">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span>Meny</span>
+            <button class="sidebar-close" onclick="closeSidebar()" aria-label="Lukk meny">✕</button>
+        </div>
                 <!-- Topp N -->
                 <div class="card" id="topp-n-card">
                     <h2>Topp N skyttere</h2>
@@ -820,10 +864,13 @@
                         <select id="topp-n-distance" title="Distanse">
                             <option value="">Alle distanser</option>
                         </select>
+                        <select id="topp-n-year" title="År" onchange="applyYearFilter('topp-n', this.value)">
+                            <option value="">Alle år</option>
+                        </select>
                     </div>
                     <div class="topp-n-row">
-                        <input type="date" id="topp-n-date-from" title="Fra dato">
-                        <input type="date" id="topp-n-date-to" title="Til dato">
+                        <input type="date" id="topp-n-date-from" title="Fra dato" onchange="document.getElementById('topp-n-year').value=''">
+                        <input type="date" id="topp-n-date-to" title="Til dato" onchange="document.getElementById('topp-n-year').value=''">
                     </div>
                     <button class="btn btn-primary" onclick="showTopArchers()">Vis på graf</button>
                 </div>
@@ -850,14 +897,17 @@
                         <select id="filter-distance" onchange="applyFilters()">
                             <option value="">All Distances</option>
                         </select>
+                        <select id="filter-year" onchange="applyYearFilter('filter', this.value)">
+                            <option value="">All Years</option>
+                        </select>
                         <div class="date-range">
                             <div>
                                 <label for="filter-date-from">From</label>
-                                <input type="date" id="filter-date-from" onchange="applyFilters()">
+                                <input type="date" id="filter-date-from" onchange="document.getElementById('filter-year').value=''; applyFilters()">
                             </div>
                             <div>
                                 <label for="filter-date-to">To</label>
-                                <input type="date" id="filter-date-to" onchange="applyFilters()">
+                                <input type="date" id="filter-date-to" onchange="document.getElementById('filter-year').value=''; applyFilters()">
                             </div>
                         </div>
                     </div>
@@ -884,36 +934,42 @@
                         <button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="createGroup()">+</button>
                     </div>
                 </div>
-            </div>
+    </div>
 
-            <div class="main-content">
+    <div class="container">
+        <header>
+            <h1>Archery Tracker</h1>
+            <p>Spor og visualiser resultater fra bueskytingskonkurranser</p>
+        </header>
+
+        <!-- Chart Section (full width, top) -->
+        <div class="card" id="chart-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--slate-100); padding-bottom:10px;">
+                <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Graf</h2>
+                <div class="chart-toggle">
+                    <button class="btn-toggle active" id="toggle-time" onclick="setChartMode('time')">Over tid</button>
+                    <button class="btn-toggle" id="toggle-yearly" onclick="setChartMode('yearly')">Årsgjennomsnitt</button>
+                </div>
+            </div>
+            <!-- Chart type picker — shown after data loads -->
+            <div class="chart-type-bar" id="chart-type-bar" style="display:none;">
+                <span class="chart-type-label">Graftype:</span>
+                <button class="btn-toggle btn-chart-type active" data-type="line" onclick="setChartType('line')">Linje</button>
+                <button class="btn-toggle btn-chart-type" data-type="area" onclick="setChartType('area')">Areal</button>
+                <button class="btn-toggle btn-chart-type" data-type="scatter" onclick="setChartType('scatter')">Punkt</button>
+                <button class="btn-toggle btn-chart-type" data-type="bar" onclick="setChartType('bar')">Søyle</button>
+            </div>
+            <div class="chart-container" style="margin-top:12px;">
+                <canvas id="scores-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="main-content">
                 <!-- Stats Section -->
                 <div class="card" id="stats-section" style="display: none;">
                     <h2>Statistikk</h2>
                     <div class="stats-grid" id="stats-grid">
                         <!-- Stats will be populated here -->
-                    </div>
-                </div>
-
-                <!-- Chart Section -->
-                <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--slate-100); padding-bottom:10px;">
-                        <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Graf</h2>
-                        <div class="chart-toggle">
-                            <button class="btn-toggle active" id="toggle-time" onclick="setChartMode('time')">Over tid</button>
-                            <button class="btn-toggle" id="toggle-yearly" onclick="setChartMode('yearly')">Årsgjennomsnitt</button>
-                        </div>
-                    </div>
-                    <!-- Chart type picker — shown after data loads -->
-                    <div class="chart-type-bar" id="chart-type-bar" style="display:none;">
-                        <span class="chart-type-label">Graftype:</span>
-                        <button class="btn-toggle btn-chart-type active" data-type="line" onclick="setChartType('line')">Linje</button>
-                        <button class="btn-toggle btn-chart-type" data-type="area" onclick="setChartType('area')">Areal</button>
-                        <button class="btn-toggle btn-chart-type" data-type="scatter" onclick="setChartType('scatter')">Punkt</button>
-                        <button class="btn-toggle btn-chart-type" data-type="bar" onclick="setChartType('bar')">Søyle</button>
-                    </div>
-                    <div class="chart-container" style="margin-top:12px;">
-                        <canvas id="scores-chart"></canvas>
                     </div>
                 </div>
 
@@ -926,25 +982,6 @@
                     <ul class="competitions-list" id="competitions-list">
                         <li style="color:#888;padding:8px;">Laster konkuranser…</li>
                     </ul>
-                    <!-- Expanded event detail -->
-                    <div id="event-detail-panel">
-                        <div class="event-title" id="event-detail-title"></div>
-                        <div style="overflow-x:auto;">
-                            <table class="event-results-table">
-                                <thead>
-                                    <tr>
-                                        <th>Plass</th>
-                                        <th>Skytter</th>
-                                        <th>Klasse</th>
-                                        <th>Distanse</th>
-                                        <th>Score</th>
-                                        <th>Per 60</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="event-detail-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Active Archers Per Year -->
@@ -967,6 +1004,12 @@
                     </div>
                     <div class="chart-container" style="margin-top:4px;">
                         <canvas id="activity-chart"></canvas>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="results-table" id="activity-summary-table">
+                            <thead><tr id="activity-summary-head"></tr></thead>
+                            <tbody id="activity-summary-body"></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -1058,11 +1101,76 @@
                         </table>
                     </div>
                 </div>
+        </div>
+
+        <!-- Event detail view (replaces the dashboard while a competition is open) -->
+        <div class="card" id="event-view-section" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid var(--slate-100);padding-bottom:10px;">
+                <button class="btn-secondary" style="width:auto;font-size:13px;padding:7px 14px;" onclick="closeEventView()">← Tilbake</button>
+                <span id="event-view-count" style="font-size:12px;color:var(--slate-400);"></span>
+            </div>
+            <h2 id="event-view-title" style="border:none;padding:0;margin-bottom:2px;text-transform:none;letter-spacing:normal;font-size:1.2rem;color:var(--slate-900);"></h2>
+            <p id="event-view-subtitle" style="color:var(--slate-500);font-size:13px;margin-bottom:18px;"></p>
+
+            <!-- Totals across the whole event -->
+            <div class="stats-grid" id="event-view-totals" style="margin-bottom:22px;"></div>
+
+            <!-- Per-class breakdown -->
+            <h3 class="event-view-subhead">Per klasse</h3>
+            <div style="overflow-x:auto;margin-bottom:22px;">
+                <table class="results-table" id="event-view-class-table">
+                    <thead>
+                        <tr>
+                            <th>Klasse</th>
+                            <th>Distanse</th>
+                            <th>Deltakere</th>
+                            <th>Snitt (per 60)</th>
+                            <th>Beste</th>
+                        </tr>
+                    </thead>
+                    <tbody id="event-view-class-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Full results — filterable and sortable by class -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                <h3 class="event-view-subhead" style="margin:0;">Alle resultater</h3>
+                <select id="event-view-class-filter" onchange="renderEventResultsTable()" style="max-width:220px;padding:6px 10px;border:1px solid var(--slate-200);border-radius:var(--radius-sm);font-size:13px;">
+                    <option value="">Alle klasser</option>
+                </select>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="results-table sortable" id="event-view-results-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="placement" onclick="sortEventResultsBy('placement')">Plass</th>
+                            <th data-sort="archer_name" onclick="sortEventResultsBy('archer_name')">Skytter</th>
+                            <th data-sort="category" onclick="sortEventResultsBy('category')">Klasse</th>
+                            <th data-sort="distance" onclick="sortEventResultsBy('distance')">Distanse</th>
+                            <th data-sort="score" onclick="sortEventResultsBy('score')">Score</th>
+                            <th data-sort="score_per_60" onclick="sortEventResultsBy('score_per_60')">Per 60</th>
+                        </tr>
+                    </thead>
+                    <tbody id="event-view-results-body"></tbody>
+                </table>
             </div>
         </div>
     </div>
 
     <script>
+        // ── Collapsible sidebar ──────────────────────────────────────────────
+        function toggleSidebar() {
+            const isOpen = document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-backdrop').classList.toggle('open', isOpen);
+            document.getElementById('sidebar-toggle').setAttribute('aria-expanded', isOpen);
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-backdrop').classList.remove('open');
+            document.getElementById('sidebar-toggle').setAttribute('aria-expanded', 'false');
+        }
+
         // Global state
         let selectedArcherId = null;       // first/only selected archer (backwards compat)
         let selectedArcherIds = new Set(); // all currently checked archers
@@ -1386,6 +1494,7 @@
             initChart();
             await loadArchers();
             await loadFilters();
+            selectDefaultYear();
             refreshView();
             loadCompetitions();
             loadGroups();
@@ -1563,12 +1672,16 @@
 
             if (count === 0) {
                 // No manual selection — preview the top archers by best score
-                // (most archers in the DB have no results, so an alphabetical
-                // slice would give a near-empty chart)
+                // for the active year filter (defaults to the current year on
+                // load, so the graph never starts out blank/all-time)
                 statsSection.style.display = 'none';
                 resultsSection.style.display = 'none';
                 try {
-                    const resp = await fetch('/api/top-archers?n=10');
+                    const { date_from, date_to } = getFilters();
+                    const params = new URLSearchParams({ n: '10' });
+                    if (date_from) params.append('date_from', date_from);
+                    if (date_to) params.append('date_to', date_to);
+                    const resp = await fetch('/api/top-archers?' + params.toString());
                     const top = resp.ok ? await resp.json() : [];
                     if (top.length > 0) {
                         await loadCurrentChart(top.map(a => a.id));
@@ -1639,9 +1752,57 @@
                 document.getElementById('upcoming-distance').innerHTML =
                     '<option value="">Alle distanser</option>' +
                     distances.map(d => `<option value="${d}">${d}</option>`).join('');
+
+                // Load years
+                const yearResponse = await fetch('/api/years');
+                const years = await yearResponse.json();
+
+                const yearOptions = year => years.map(y => `<option value="${y}">${y}</option>`).join('');
+                document.getElementById('filter-year').innerHTML =
+                    '<option value="">All Years</option>' + yearOptions();
+                document.getElementById('topp-n-year').innerHTML =
+                    '<option value="">Alle år</option>' + yearOptions();
             } catch (error) {
                 console.error('Error loading filters:', error);
             }
+        }
+
+        // Selecting a year sets the paired date-from/date-to inputs to
+        // that year's full range (01.01–31.12); clearing it blanks both.
+        function applyYearFilter(prefix, year) {
+            const fromEl = document.getElementById(`${prefix}-date-from`);
+            const toEl = document.getElementById(`${prefix}-date-to`);
+            if (year) {
+                fromEl.value = `${year}-01-01`;
+                toEl.value = `${year}-12-31`;
+            } else {
+                fromEl.value = '';
+                toEl.value = '';
+            }
+            if (prefix === 'filter') {
+                applyFilters();
+            }
+        }
+
+        // Pre-select the current year on load (falls back to the most recent
+        // year with data) so the app opens on this year's stats instead of a
+        // blank/all-time view. Does not trigger a fetch itself — the caller
+        // (initApp) calls refreshView() right after.
+        function selectDefaultYear() {
+            const filterYearEl = document.getElementById('filter-year');
+            const toppYearEl = document.getElementById('topp-n-year');
+            const available = [...filterYearEl.options].map(o => o.value).filter(Boolean);
+            if (available.length === 0) return;
+
+            const currentYear = String(new Date().getFullYear());
+            const year = available.includes(currentYear) ? currentYear : available[0];
+
+            filterYearEl.value = year;
+            toppYearEl.value = year;
+            document.getElementById('filter-date-from').value = `${year}-01-01`;
+            document.getElementById('filter-date-to').value = `${year}-12-31`;
+            document.getElementById('topp-n-date-from').value = `${year}-01-01`;
+            document.getElementById('topp-n-date-to').value = `${year}-12-31`;
         }
 
         // Select an archer (legacy helper — still used after import)
@@ -2127,9 +2288,8 @@
 
         // ── Competitions browser ──────────────────────────────────────────
 
-        let activeEventId = null;   // currently expanded event_db_id
-        let activeEventDistance = null;
-        let activeEventCategory = null;
+        let eventViewResults = [];  // full (all-class) result set for the open event
+        let eventViewSort = { field: 'category', dir: 'asc' };
 
         // ==================== Active Archers Per Year ====================
         let _activityChart = null;
@@ -2150,6 +2310,17 @@
 
             document.getElementById('activity-incomplete-note').style.display =
                 data.historical_incomplete ? '' : 'none';
+
+            // When specific classes are selected, the per-class datasets can't
+            // be summed into a true total (an archer may show up in more than
+            // one class), so fetch the real distinct-archer total separately.
+            let totalData = null;
+            if (cats.length > 0) {
+                try {
+                    totalData = await (await fetch('/api/chart/active-archers')).json();
+                } catch (e) { /* summary table just skips the Totalt row */ }
+            }
+            renderActivitySummaryTable(data.years, data.datasets, totalData);
 
             const years = data.years;
             const palette = [
@@ -2186,6 +2357,36 @@
                     }
                 }
             });
+        }
+
+        function renderActivitySummaryTable(years, datasets, totalData) {
+            const head = document.getElementById('activity-summary-head');
+            const body = document.getElementById('activity-summary-body');
+
+            // Union of years across both responses, in case they differ.
+            const allYears = totalData
+                ? Array.from(new Set([...years, ...totalData.years])).sort()
+                : years;
+
+            head.innerHTML = '<th>Klasse</th>' + allYears.map(y => `<th>${y}</th>`).join('');
+
+            const rows = datasets.map(ds => {
+                const byYear = {};
+                years.forEach((y, i) => { byYear[y] = ds.data[i]; });
+                const label = ds.category_label ? `${ds.category_label} (${ds.label})` : ds.label;
+                return `<tr><td>${label}</td>${allYears.map(y => `<td>${byYear[y] ?? 0}</td>`).join('')}</tr>`;
+            });
+
+            if (totalData) {
+                const byYear = {};
+                totalData.years.forEach((y, i) => { byYear[y] = totalData.datasets[0].data[i]; });
+                rows.push(
+                    `<tr style="font-weight:600;background:var(--slate-50)"><td>Totalt</td>` +
+                    allYears.map(y => `<td>${byYear[y] ?? 0}</td>`).join('') + `</tr>`
+                );
+            }
+
+            body.innerHTML = rows.join('');
         }
 
         function renderActivityCategoryList(filter) {
@@ -2339,19 +2540,12 @@
 
             if (events.length === 0) {
                 list.innerHTML = '<li style="color:#888;padding:8px;">Ingen konkuranser funnet.</li>';
-                // Close detail panel if open
-                document.getElementById('event-detail-panel').style.display = 'none';
-                activeEventId = null;
                 return;
             }
 
-            list.innerHTML = events.map(ev => {
-                const isActive = (ev.event_db_id === activeEventId &&
-                                   ev.distance === activeEventDistance &&
-                                   ev.category === activeEventCategory);
-                return `
-                <li class="comp-item${isActive ? ' active' : ''}"
-                    onclick="toggleEventDetail(${ev.event_db_id}, '${ev.distance.replace(/'/g,"\\'")}', '${ev.category}', '${escapeHtml(ev.event_name)}', '${ev.date}')">
+            list.innerHTML = events.map(ev => `
+                <li class="comp-item"
+                    onclick="openEventView(${ev.event_db_id}, '${escapeHtml(ev.event_name).replace(/'/g,"\\'")}', '${ev.date}')">
                     <div class="comp-header">
                         <span class="comp-name">${escapeHtml(ev.event_name)}</span>
                         <span class="comp-date">${formatDate(ev.date)}</span>
@@ -2362,74 +2556,181 @@
                         <span>Topp: <strong>${ev.top_score}</strong></span>
                         <span>Snitt: <strong>${ev.avg_score}</strong></span>
                     </div>
-                </li>`;
-            }).join('');
-
-            // If an event was already open and is still in list, re-fetch its detail
-            if (activeEventId !== null) {
-                showEventDetail(activeEventId, activeEventDistance, activeEventCategory);
-            }
+                </li>`
+            ).join('');
         }
 
-        async function toggleEventDetail(eventDbId, distance, category, name, date) {
-            // If clicking the same row, collapse it
-            if (activeEventId === eventDbId &&
-                activeEventDistance === distance &&
-                activeEventCategory === category) {
-                activeEventId = null;
-                activeEventDistance = null;
-                activeEventCategory = null;
-                document.getElementById('event-detail-panel').style.display = 'none';
-                // Remove active class
-                document.querySelectorAll('.comp-item').forEach(el => el.classList.remove('active'));
+        // ── Event detail view (dedicated page-like view for one competition) ──
+
+        async function openEventView(eventDbId, eventName, eventDate) {
+            document.getElementById('chart-section').style.display = 'none';
+            document.querySelector('.main-content').style.display = 'none';
+            const section = document.getElementById('event-view-section');
+            section.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            document.getElementById('event-view-title').textContent = eventName;
+            document.getElementById('event-view-subtitle').textContent = formatDate(eventDate);
+            document.getElementById('event-view-totals').innerHTML = '<p style="color:#888;">Laster…</p>';
+            document.getElementById('event-view-class-body').innerHTML =
+                '<tr><td colspan="5" class="loading">Laster…</td></tr>';
+            document.getElementById('event-view-results-body').innerHTML =
+                '<tr><td colspan="6" class="loading">Laster…</td></tr>';
+
+            try {
+                const resp = await fetch(`/api/events/${eventDbId}/results`);
+                eventViewResults = resp.ok ? await resp.json() : [];
+            } catch (e) {
+                console.error('Error loading event results:', e);
+                eventViewResults = [];
+            }
+
+            const countEl = document.getElementById('event-view-count');
+            countEl.textContent = eventViewResults.length
+                ? `${eventViewResults.length} resultat${eventViewResults.length !== 1 ? 'er' : ''}`
+                : '';
+
+            renderEventTotals();
+            renderEventClassBreakdown();
+            populateEventClassFilter();
+            eventViewSort = { field: 'category', dir: 'asc' };
+            renderEventResultsTable();
+        }
+
+        function closeEventView() {
+            document.getElementById('event-view-section').style.display = 'none';
+            document.getElementById('chart-section').style.display = '';
+            document.querySelector('.main-content').style.display = '';
+        }
+
+        function renderEventTotals() {
+            const el = document.getElementById('event-view-totals');
+            if (eventViewResults.length === 0) {
+                el.innerHTML = '<p style="color:#888;">Ingen resultater.</p>';
                 return;
             }
 
-            activeEventId = eventDbId;
-            activeEventDistance = distance;
-            activeEventCategory = category;
+            const participants = new Set(eventViewResults.map(r => r.archer_id)).size;
+            const classCount = new Set(eventViewResults.map(r => r.category)).size;
+            const per60Vals = eventViewResults.map(r => r.score_per_60).filter(v => v != null);
+            const avgPer60 = per60Vals.length
+                ? (per60Vals.reduce((a, b) => a + b, 0) / per60Vals.length).toFixed(1) : '—';
+            const bestPer60 = per60Vals.length ? Math.max(...per60Vals) : '—';
 
-            // Mark active row
-            document.querySelectorAll('.comp-item').forEach(el => el.classList.remove('active'));
-            event.currentTarget && event.currentTarget.classList.add('active');
-
-            document.getElementById('event-detail-title').textContent =
-                `${name} — ${formatDate(date)} — ${distance} · ${category}`;
-
-            await showEventDetail(eventDbId, distance, category);
+            el.innerHTML = `
+                <div class="stat-card">
+                    <div class="value">${participants}</div>
+                    <div class="label">Deltakere totalt</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${classCount}</div>
+                    <div class="label">Klasser</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${avgPer60}</div>
+                    <div class="label">Snitt (per 60)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${bestPer60}</div>
+                    <div class="label">Beste (per 60)</div>
+                </div>
+            `;
         }
 
-        async function showEventDetail(eventDbId, distance, category) {
-            const panel = document.getElementById('event-detail-panel');
-            const tbody = document.getElementById('event-detail-body');
-
-            panel.style.display = 'block';
-            tbody.innerHTML = '<tr><td colspan="6" style="color:#888;text-align:center;padding:12px;">Laster…</td></tr>';
-
-            try {
-                const url = `/api/events/${eventDbId}/results?distance=${encodeURIComponent(distance)}&category=${encodeURIComponent(category)}`;
-                const resp = await fetch(url);
-                const results = await resp.json();
-
-                if (results.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="color:#888;text-align:center;">Ingen resultater.</td></tr>';
-                    return;
+        function renderEventClassBreakdown() {
+            const tbody = document.getElementById('event-view-class-body');
+            const byClass = {};
+            eventViewResults.forEach(r => {
+                const key = r.category + '||' + r.distance;
+                if (!byClass[key]) {
+                    byClass[key] = { category: r.category, distance: r.distance, scores: [], per60: [] };
                 }
+                byClass[key].scores.push(r.score);
+                if (r.score_per_60 != null) byClass[key].per60.push(r.score_per_60);
+            });
 
-                tbody.innerHTML = results.map(r => {
-                    const isSelected = selectedArcherIds.has(r.archer_id);
-                    return `<tr class="${isSelected ? 'highlight-archer' : ''}">
-                        <td>${r.placement ? getPlacementBadge(r.placement) : '—'}</td>
-                        <td>${escapeHtml(r.archer_name)}${isSelected ? ' ★' : ''}</td>
-                        <td>${r.category}</td>
-                        <td>${r.distance}</td>
-                        <td><strong>${r.score}</strong></td>
-                        <td style="color:#64748b">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
-                    </tr>`;
-                }).join('');
-            } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="6" style="color:#ff6464;">Feil ved lasting.</td></tr>';
+            const rows = Object.values(byClass).sort((a, b) => a.category.localeCompare(b.category));
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="loading">Ingen data</td></tr>';
+                return;
             }
+
+            tbody.innerHTML = rows.map(c => {
+                const avg = c.per60.length
+                    ? (c.per60.reduce((a, b) => a + b, 0) / c.per60.length).toFixed(1) : '—';
+                const best = c.scores.length ? Math.max(...c.scores) : '—';
+                return `<tr>
+                    <td><strong>${escapeHtml(c.category)}</strong></td>
+                    <td>${escapeHtml(c.distance)}</td>
+                    <td>${c.scores.length}</td>
+                    <td>${avg}</td>
+                    <td>${best}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function populateEventClassFilter() {
+            const sel = document.getElementById('event-view-class-filter');
+            const current = sel.value;
+            const classes = [...new Set(eventViewResults.map(r => r.category))].sort();
+            sel.innerHTML = '<option value="">Alle klasser</option>' +
+                classes.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            if (classes.includes(current)) sel.value = current;
+        }
+
+        function sortEventResultsBy(field) {
+            if (eventViewSort.field === field) {
+                eventViewSort.dir = eventViewSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                eventViewSort = { field, dir: 'asc' };
+            }
+            renderEventResultsTable();
+        }
+
+        function renderEventResultsTable() {
+            const tbody = document.getElementById('event-view-results-body');
+            const classFilter = document.getElementById('event-view-class-filter').value;
+            let rows = classFilter
+                ? eventViewResults.filter(r => r.category === classFilter)
+                : eventViewResults.slice();
+
+            const { field, dir } = eventViewSort;
+            const mul = dir === 'asc' ? 1 : -1;
+            rows.sort((a, b) => {
+                let av = a[field], bv = b[field];
+                const aMissing = av === null || av === undefined;
+                const bMissing = bv === null || bv === undefined;
+                if (aMissing && bMissing) return 0;
+                if (aMissing) return 1;   // missing values always sort last
+                if (bMissing) return -1;
+                if (typeof av === 'string') av = av.toLowerCase();
+                if (typeof bv === 'string') bv = bv.toLowerCase();
+                if (av < bv) return -1 * mul;
+                if (av > bv) return 1 * mul;
+                return 0;
+            });
+
+            document.querySelectorAll('#event-view-results-table th[data-sort]').forEach(th => {
+                th.classList.toggle('sorted-asc', th.dataset.sort === field && dir === 'asc');
+                th.classList.toggle('sorted-desc', th.dataset.sort === field && dir === 'desc');
+            });
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">Ingen resultater.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => {
+                const isSelected = selectedArcherIds.has(r.archer_id);
+                return `<tr class="${isSelected ? 'highlight-archer' : ''}">
+                    <td>${r.placement ? getPlacementBadge(r.placement) : '—'}</td>
+                    <td>${escapeHtml(r.archer_name)}${isSelected ? ' ★' : ''}</td>
+                    <td>${escapeHtml(r.category)}</td>
+                    <td>${escapeHtml(r.distance)}</td>
+                    <td><strong>${r.score}</strong></td>
+                    <td style="color:#64748b">${r.score_per_60 != null ? r.score_per_60 : '-'}</td>
+                </tr>`;
+            }).join('');
         }
 
         function escapeHtml(str) {

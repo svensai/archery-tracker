@@ -479,6 +479,21 @@ def get_distances() -> List[str]:
     return distances
 
 
+def get_years() -> List[int]:
+    """Get all years that have at least one result, newest first."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT DISTINCT strftime('%Y', date) as year
+        FROM results
+        WHERE date IS NOT NULL
+        ORDER BY year DESC
+    ''')
+    years = [int(row['year']) for row in cursor.fetchall()]
+    conn.close()
+    return years
+
+
 def get_top_archers(
     n: int = 5,
     category: Optional[str] = None,
@@ -926,43 +941,59 @@ def add_archer_with_external_id(
 ) -> int:
     """Add a new archer with external ID or get existing archer ID."""
     conn = get_connection()
-    cursor = conn.cursor()
-    
-    # First check if archer exists by external_id
-    cursor.execute('SELECT id FROM archers WHERE external_id = ?', (external_id,))
-    row = cursor.fetchone()
-    
-    if row:
-        archer_id = row['id']
-        # Update info
-        cursor.execute('''
-            UPDATE archers 
-            SET name = ?, club = ?, club_id = ?, profile_url = ?, updated_at = ?
-            WHERE id = ?
-        ''', (name, club, club_id, profile_url, datetime.now(), archer_id))
-        conn.commit()
-    else:
-        # Try to insert new archer
-        try:
-            cursor.execute('''
-                INSERT INTO archers (name, external_id, club, club_id, profile_url)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (name, external_id, club, club_id, profile_url))
-            archer_id = cursor.lastrowid
-            conn.commit()
-        except sqlite3.IntegrityError:
-            # Name already exists - update with external_id
-            cursor.execute('SELECT id FROM archers WHERE name = ?', (name,))
-            archer_id = cursor.fetchone()['id']
-            cursor.execute('''
-                UPDATE archers 
-                SET external_id = ?, club = ?, club_id = ?, profile_url = ?, updated_at = ?
-                WHERE id = ?
-            ''', (external_id, club, club_id, profile_url, datetime.now(), archer_id))
-            conn.commit()
-    
-    conn.close()
-    return archer_id
+    try:
+        cursor = conn.cursor()
+
+        # First check if archer exists by external_id
+        cursor.execute('SELECT id FROM archers WHERE external_id = ?', (external_id,))
+        row = cursor.fetchone()
+
+        if row:
+            archer_id = row['id']
+            try:
+                # Update info
+                cursor.execute('''
+                    UPDATE archers
+                    SET name = ?, club = ?, club_id = ?, profile_url = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (name, club, club_id, profile_url, datetime.now(), archer_id))
+                conn.commit()
+            except sqlite3.IntegrityError:
+                # A different archer already has this exact name (a real name
+                # collision between two people). Reassigning that archer's
+                # name here would misattribute their results, so keep this
+                # archer's existing name and only refresh the other fields.
+                conn.rollback()
+                cursor.execute('''
+                    UPDATE archers
+                    SET club = ?, club_id = ?, profile_url = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (club, club_id, profile_url, datetime.now(), archer_id))
+                conn.commit()
+        else:
+            # Try to insert new archer
+            try:
+                cursor.execute('''
+                    INSERT INTO archers (name, external_id, club, club_id, profile_url)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (name, external_id, club, club_id, profile_url))
+                archer_id = cursor.lastrowid
+                conn.commit()
+            except sqlite3.IntegrityError:
+                conn.rollback()
+                # Name already exists - update with external_id
+                cursor.execute('SELECT id FROM archers WHERE name = ?', (name,))
+                archer_id = cursor.fetchone()['id']
+                cursor.execute('''
+                    UPDATE archers
+                    SET external_id = ?, club = ?, club_id = ?, profile_url = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (external_id, club, club_id, profile_url, datetime.now(), archer_id))
+                conn.commit()
+
+        return archer_id
+    finally:
+        conn.close()
 
 
 def get_archer_by_external_id(external_id: int) -> Optional[Dict[str, Any]]:

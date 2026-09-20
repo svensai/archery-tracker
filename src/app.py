@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from src.database import (
     init_database, add_archer, add_event, add_result,
     get_all_archers, get_archer_results, get_all_results,
-    get_categories, get_distances, get_archer_stats,
+    get_categories, get_distances, get_years, get_archer_stats,
     get_archer_yearly_stats, get_archer_name, get_yearly_stats_bulk,
     get_events_list, get_event_results,
     get_sync_stats, get_all_sync_status, get_recent_sync_logs,
@@ -195,6 +195,9 @@ def api_chart_active_archers():
     """
     categories = request.args.getlist('categories') or None
     data = get_active_archers_per_year(categories)
+    if categories:
+        for ds in data['datasets']:
+            ds['category_label'] = get_category_description(ds['label'])
     return jsonify(data)
 
 
@@ -217,6 +220,14 @@ def api_get_distances():
     """Get all unique distances."""
     distances = get_distances()
     return jsonify(distances)
+
+
+@app.route('/api/years', methods=['GET'])
+@login_required
+def api_get_years():
+    """Get all years that have at least one result, newest first."""
+    years = get_years()
+    return jsonify(years)
 
 
 @app.route('/api/top-archers', methods=['GET'])

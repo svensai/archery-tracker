@@ -155,6 +155,13 @@ class TestCategoriesDistances:
         resp = flask_client.get('/api/distances')
         assert '18 m' in _json(resp)
 
+    def test_years_after_import(self, flask_client):
+        self._import_sample(flask_client)
+        resp = flask_client.get('/api/years')
+        years = _json(resp)
+        assert isinstance(years, list)
+        assert len(years) > 0
+
 
 # ---------------------------------------------------------------------------
 # /api/chart/yearly/*
@@ -592,6 +599,17 @@ class TestActiveArchersChart:
         data = _json(flask_client.get('/api/chart/active-archers'))
         assert 'historical_incomplete' in data
         assert 'unsynced_count' in data
+
+    def test_per_category_datasets_include_readable_label(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/chart/active-archers?categories=C1&categories=R1'))
+        c1_ds = next(ds for ds in data['datasets'] if ds['label'] == 'C1')
+        assert c1_ds['category_label'] == 'Compound Men'
+
+    def test_total_dataset_has_no_category_label(self, flask_client):
+        self._seed(flask_client)
+        data = _json(flask_client.get('/api/chart/active-archers'))
+        assert 'category_label' not in data['datasets'][0]
 
 
 
